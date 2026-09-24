@@ -232,7 +232,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={async () => {
+              await signOut({ redirect: false });
+              window.location.href = "/login";
+            }}
             className="w-full h-8 px-3 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-rose-100"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -334,7 +337,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={async () => {
+              await signOut({ redirect: false });
+              window.location.href = "/login";
+            }}
             className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5"
           >
             <LogOut className="h-3.5 w-3.5" />

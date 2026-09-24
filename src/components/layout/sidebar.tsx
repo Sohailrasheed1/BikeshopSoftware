@@ -183,7 +183,10 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
             </div>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={async () => {
+              await signOut({ redirect: false });
+              window.location.href = "/login";
+            }}
             title="Log Out"
             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
           >
