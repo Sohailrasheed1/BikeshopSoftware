@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   Boxes,
@@ -8,22 +8,29 @@ import {
   Receipt,
   TrendingUp,
   AlertTriangle,
-  ArrowUpRight,
   PlusCircle,
   Clock,
-  CheckCircle,
-  Layers,
   ArrowRight,
   ShieldAlert,
+  WalletCards,
+  CheckCircle2,
+  Printer,
+  ChevronRight,
+  Package,
+  Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ReceiptModal } from "@/components/pos/receipt-modal";
 import { useStore } from "@/lib/storage/context";
-import { formatPKR, formatDate, daysSince } from "@/lib/utils";
+import { formatPKR, formatDate, formatDateTime, daysSince } from "@/lib/utils";
+import { Bill } from "@/types";
 
 export default function DashboardPage() {
-  const { stats, parts, bills, supplierCredits, updateStock } = useStore();
+  const { stats, parts, bills, supplierCredits } = useStore();
+  const [activeTab, setActiveTab] = useState<"bills" | "stock" | "credits">("bills");
+  const [selectedBillForPrint, setSelectedBillForPrint] = useState<Bill | null>(null);
 
   const lowStockParts = parts.filter(
     (p) => p.currentStock <= p.minStockLimit
@@ -33,335 +40,490 @@ export default function DashboardPage() {
     (c) => c.status !== "Paid" && daysSince(c.purchaseDate) >= 15
   );
 
-  const recentBills = bills.slice(0, 5);
+  const recentBills = bills.slice(0, 6);
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
-      {/* Top Banner / Welcome & Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-blue-500/15">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-white/90">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            Shop Open & Ready for Billing
+    <div className="space-y-6 sm:space-y-7 animate-in fade-in duration-300">
+      {/* Top Welcome Header - Clean & Focused */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Counter Khula Hai
+            </span>
+            <span className="text-xs text-slate-400 font-medium">
+              Skander Spare Parts
+            </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Skander Spare Parts Dashboard
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Khush Amdeed, Dukan Ka Khulasa 🏍️
           </h1>
-          <p className="text-blue-100 text-sm max-w-xl">
-            Stock, customer records, billing receipts aur supplier udhaar — sab ek hi jagah control karein.
+          <p className="text-xs text-slate-500 font-medium max-w-xl">
+            Aaj ki bikri, saman ka stock, gahak ka hisab aur supplier udhaar sab yahan se control karein.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/billing">
+        <div className="flex items-center gap-2.5">
+          <Link href="/billing" className="w-full sm:w-auto">
             <Button
               size="lg"
-              className="bg-white text-blue-700 hover:bg-blue-50 font-bold shadow-md hover:shadow-lg border-none"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 text-sm h-11 px-5"
             >
-              <PlusCircle className="h-5 w-5 mr-2 text-blue-600" />
-              New Bill (بل بنائیں)
-            </Button>
-          </Link>
-          <Link href="/inventory">
-            <Button
-              size="lg"
-              variant="glass"
-              className="bg-white/15 text-white hover:bg-white/25 border-white/30 backdrop-blur-md"
-            >
-              <Boxes className="h-5 w-5 mr-2" />
-              Manage Stock
+              <PlusCircle className="h-5 w-5 mr-2" />
+              Naya Bill Banayein
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* 15+ Days Overdue Supplier Credit Warning (Critical Quotation Feature) */}
-      {overdueCredits.length > 0 && (
-        <div className="glass-card rounded-2xl p-5 border-amber-300/80 bg-amber-50/70 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-              <ShieldAlert className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-amber-950 text-base">
-                  Supplier Credit Overdue Warning (15+ Days Pending)
-                </h3>
-                <Badge variant="danger" className="text-[11px] font-bold">
-                  {overdueCredits.length} Suppliers Due
-                </Badge>
-              </div>
-              <p className="text-xs text-amber-900/80 mt-0.5">
-                In suppliers ka udhaar 15 din se zyada ho chuka hai. Cash-flow theek rakhne ke liye payment follow-up karein.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link href="/suppliers">
-              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm">
-                View Khata Details
-                <ArrowRight className="h-4 w-4 ml-1.5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Total Inventory Value */}
-        <Card className="glass-card-hover">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Stock Value
-            </CardTitle>
-            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-              <Boxes className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-slate-900">
-              {formatPKR(stats.totalInventoryValue)}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="font-semibold text-slate-700">{stats.totalPartsCount} Total Parts</span> in catalog
-            </div>
-          </CardContent>
-        </Card>
-
+      {/* 4 Clean Metric Cards (High Readability) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Today's Sales */}
-        <Card className="glass-card-hover">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Today&apos;s Sales / آج کی بکری
-            </CardTitle>
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-emerald-600">
-              {formatPKR(stats.todaySales)}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="font-semibold text-slate-700">{stats.todayBillsCount} Bills</span> generated today
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Low & Out of Stock Alerts */}
-        <Card className="glass-card-hover">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Stock Warnings
-            </CardTitle>
-            <div className="h-9 w-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-slate-900">
-                {stats.lowStockCount + stats.outOfStockCount}
-              </span>
-              <span className="text-xs text-slate-500">Items need restock</span>
-            </div>
-            <div className="mt-1 flex items-center gap-2 text-xs">
-              <span className="font-semibold text-rose-600">{stats.outOfStockCount} Out of stock</span>
-              <span className="text-slate-300">•</span>
-              <span className="font-semibold text-amber-600">{stats.lowStockCount} Low stock</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Supplier Udhaar / Credit */}
-        <Card className="glass-card-hover">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Supplier Khata (Udhaar)
-            </CardTitle>
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-slate-900">
-              {formatPKR(stats.totalPendingSupplierCredit)}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <span className="font-semibold text-amber-600">
-                {stats.overdue15DaysCreditCount} overdue (&gt;15 days)
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Two Column Grid: Low Stock Alert Table & Recent Bills */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Low Stock Alerts (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <h2 className="text-base font-bold text-slate-900">
-                Low Stock & Out-of-Stock Alerts
-              </h2>
-            </div>
-            <Link
-              href="/inventory"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              View Full Inventory
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="glass-card rounded-2xl overflow-hidden shadow-sm">
-            {lowStockParts.length === 0 ? (
-              <div className="p-8 text-center space-y-2">
-                <CheckCircle className="h-10 w-10 text-emerald-500 mx-auto" />
-                <p className="text-sm font-semibold text-slate-800">
-                  Stock is fully healthy!
-                </p>
-                <p className="text-xs text-slate-500">
-                  Koi bhi part minimum stock limit se niche nahi hai.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-3 px-4">Part Name</th>
-                      <th className="py-3 px-3 text-center">Current Stock</th>
-                      <th className="py-3 px-3 text-center">Min Limit</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-4 text-right">Quick Restock</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {lowStockParts.slice(0, 6).map((part) => {
-                      const isZero = part.currentStock === 0;
-                      return (
-                        <tr key={part.id} className="hover:bg-slate-50/80 transition">
-                          <td className="py-3 px-4 font-semibold text-slate-900">
-                            <div>{part.name}</div>
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              {part.category} • {part.supplierName}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-center font-bold">
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-bold text-xs ${
-                                isZero
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {part.currentStock}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center text-slate-500 font-medium">
-                            {part.minStockLimit}
-                          </td>
-                          <td className="py-3 px-3">
-                            <Badge variant={isZero ? "danger" : "warning"}>
-                              {isZero ? "Out of Stock" : "Low Stock"}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs font-semibold px-2.5"
-                              onClick={() => updateStock(part.id, 10)}
-                              title="Add 10 units to stock"
-                            >
-                              +10 Add
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Recent Bills (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-blue-600" />
-              <h2 className="text-base font-bold text-slate-900">
-                Recent Bills / حالیہ بلز
-              </h2>
-            </div>
-            <Link
-              href="/bills"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              All Bills
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="glass-card rounded-2xl p-4 shadow-sm space-y-3">
-            {recentBills.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">
-                Abhi tak koi bill generate nahi hua.
-              </p>
-            ) : (
-              recentBills.map((bill) => (
-                <div
-                  key={bill.id}
-                  className="p-3 rounded-xl bg-white/70 border border-slate-100 hover:border-slate-200 transition flex items-center justify-between"
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-xs text-blue-700">
-                        {bill.billNumber}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {formatDate(bill.createdAt)}
-                      </span>
-                    </div>
-                    <div className="text-xs font-semibold text-slate-800">
-                      {bill.customerName}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {[bill.bikeModel, bill.bikeRegNumber].filter(Boolean).join(" • ") ||
-                        `${bill.items.length} items`}
-                    </div>
-                  </div>
-
-                  <div className="text-right space-y-1">
-                    <div className="font-black text-sm text-slate-900">
-                      {formatPKR(bill.grandTotal)}
-                    </div>
-                    <Badge variant={bill.status === "Completed" ? "success" : "danger"}>
-                      {bill.status}
-                    </Badge>
-                  </div>
+        <Link href="/reports">
+          <Card className="glass-card-hover border-slate-200/80 hover:border-emerald-300 cursor-pointer h-full">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Aaj Ki Bikri (Sales)
+                </span>
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                  <TrendingUp className="h-5 w-5" />
                 </div>
-              ))
-            )}
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2">
+                {formatPKR(stats.todaySales)}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="font-bold text-slate-700">{stats.todayBillsCount} Bills</span>
+                <span>aaj banaye gaye</span>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
-            <div className="pt-2">
-              <Link href="/billing" className="block">
-                <Button className="w-full font-bold shadow-sm" variant="primary">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Create New Bill (نواں بل بنائیں)
-                </Button>
-              </Link>
-            </div>
-          </div>
+        {/* Total Inventory Value */}
+        <Link href="/inventory">
+          <Card className="glass-card-hover border-slate-200/80 hover:border-blue-300 cursor-pointer h-full">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Kul Stock Ki Qeemat
+                </span>
+                <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                  <Boxes className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+                {formatPKR(stats.totalInventoryValue)}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="font-bold text-slate-700">{stats.totalPartsCount} Parts</span>
+                <span>dukan mein hain</span>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Low Stock Alerts */}
+        <div
+          onClick={() => setActiveTab("stock")}
+          className="cursor-pointer"
+        >
+          <Card
+            className={`glass-card-hover h-full transition ${
+              stats.lowStockCount > 0
+                ? "border-amber-300 bg-amber-50/40"
+                : "border-slate-200/80"
+            }`}
+          >
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Kam Stock (Alerts)
+                </span>
+                <div
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center border ${
+                    stats.lowStockCount > 0
+                      ? "bg-amber-100 text-amber-700 border-amber-200 animate-pulse"
+                      : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}
+                >
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+              </div>
+              <div
+                className={`text-2xl sm:text-3xl font-black mt-2 ${
+                  stats.lowStockCount > 0 ? "text-amber-700" : "text-slate-800"
+                }`}
+              >
+                {stats.lowStockCount} Parts
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {stats.lowStockCount > 0 ? (
+                  <span className="text-amber-800 font-semibold">
+                    Stock mangwane ki zaroorat hai
+                  </span>
+                ) : (
+                  <span>Sab parts ka stock theek hai</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Pending Supplier Udhaar */}
+        <Link href="/suppliers">
+          <Card
+            className={`glass-card-hover h-full transition ${
+              stats.overdue15DaysCreditCount > 0
+                ? "border-rose-300 bg-rose-50/30"
+                : "border-slate-200/80"
+            }`}
+          >
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Supplier Ka Udhaar
+                </span>
+                <div
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center border ${
+                    stats.overdue15DaysCreditCount > 0
+                      ? "bg-rose-100 text-rose-700 border-rose-200"
+                      : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}
+                >
+                  <WalletCards className="h-5 w-5" />
+                </div>
+              </div>
+              <div
+                className={`text-2xl sm:text-3xl font-black mt-2 ${
+                  stats.totalPendingSupplierCredit > 0 ? "text-rose-700" : "text-slate-900"
+                }`}
+              >
+                {formatPKR(stats.totalPendingSupplierCredit)}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {stats.overdue15DaysCreditCount > 0 ? (
+                  <span className="text-rose-700 font-bold">
+                    {stats.overdue15DaysCreditCount} udhaar 15+ din se pending
+                  </span>
+                ) : (
+                  <span>Khata theek chal raha hai</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
+
+      {/* 4 Fast Shortcuts for Counter Boy / Cashier */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/billing"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
+            <Receipt className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Naya Bill</div>
+            <div className="text-[11px] text-slate-400">Parchi banayein</div>
+          </div>
+        </Link>
+
+        <Link
+          href="/inventory"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
+            <Boxes className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Stock Check</div>
+            <div className="text-[11px] text-slate-400">Saman ki tadad</div>
+          </div>
+        </Link>
+
+        <Link
+          href="/customers"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Gahak Khata</div>
+            <div className="text-[11px] text-slate-400">Bike & phone record</div>
+          </div>
+        </Link>
+
+        <Link
+          href="/suppliers"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
+            <WalletCards className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Supplier Dena</div>
+            <div className="text-[11px] text-slate-400">Udhaar hisab</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Main Tabbed Information - Zero Clutter, Progressive Disclosure */}
+      <Card className="glass-card shadow-sm border-slate-200/80">
+        <CardHeader className="p-4 sm:p-5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Clean Segmented Tab Control */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 self-start">
+              <button
+                type="button"
+                onClick={() => setActiveTab("bills")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "bills"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                🧾 Taaza Bills ({recentBills.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("stock")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "stock"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                ⚠️ Kam Stock Alerts ({lowStockParts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("credits")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "credits"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                ⏳ Supplier Udhaar ({overdueCredits.length})
+              </button>
+            </div>
+
+            <Link
+              href={
+                activeTab === "bills"
+                  ? "/bills"
+                  : activeTab === "stock"
+                  ? "/inventory"
+                  : "/suppliers"
+              }
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 self-end sm:self-center"
+            >
+              <span>Mukammal Record Dekhein</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {/* TAB 1: Recent Bills */}
+          {activeTab === "bills" && (
+            <div className="divide-y divide-slate-100">
+              {recentBills.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-400">
+                  Abhi tak koi bill nahi bana.
+                </div>
+              ) : (
+                recentBills.map((bill) => (
+                  <div
+                    key={bill.id}
+                    className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-blue-600">
+                          {bill.billNumber}
+                        </span>
+                        <span className="text-xs font-bold text-slate-800 truncate">
+                          {bill.customerName || "Walk-in Customer"}
+                        </span>
+                        {bill.bikeModel && (
+                          <Badge variant="outline" className="hidden sm:inline-flex text-[10px] py-0">
+                            {bill.bikeModel}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                        <span>{formatDateTime(bill.createdAt)}</span>
+                        <span>•</span>
+                        <span>{bill.items.length} cheezen</span>
+                        <span>•</span>
+                        <span className="font-semibold text-slate-600">
+                          {bill.paymentMethod}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="font-black text-sm text-slate-900">
+                          {formatPKR(bill.grandTotal)}
+                        </div>
+                        <Badge
+                          variant={bill.status === "Completed" ? "success" : "danger"}
+                          className="text-[10px] py-0"
+                        >
+                          {bill.status === "Completed" ? "Ada Ho Gaya" : "Mansookh"}
+                        </Badge>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs text-slate-600"
+                        onClick={() => setSelectedBillForPrint(bill)}
+                        title="Print Receipt"
+                      >
+                        <Printer className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                        <span className="hidden sm:inline">Parchi</span>
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: Low Stock Alerts */}
+          {activeTab === "stock" && (
+            <div className="divide-y divide-slate-100">
+              {lowStockParts.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-500 space-y-1">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                  <p className="font-bold">MashaAllah! Sab parts ka stock theek hai.</p>
+                  <p className="text-slate-400">Koi bhi saman kam ya khatam nahi hai.</p>
+                </div>
+              ) : (
+                lowStockParts.map((part) => {
+                  const isZero = part.currentStock === 0;
+
+                  return (
+                    <div
+                      key={part.id}
+                      className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 truncate">
+                            {part.name}
+                          </span>
+                          <Badge
+                            variant={isZero ? "danger" : "warning"}
+                            className="text-[10px] py-0"
+                          >
+                            {isZero ? "Khatam" : "Kam Stock"}
+                          </Badge>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          {part.category} • Supplier: {part.supplierName}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div
+                            className={`font-black text-sm ${
+                              isZero ? "text-rose-600" : "text-amber-700"
+                            }`}
+                          >
+                            {part.currentStock} Baqi
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Hadd: {part.minStockLimit}
+                          </div>
+                        </div>
+
+                        <Link href="/inventory">
+                          <Button size="sm" variant="secondary" className="h-8 text-xs font-semibold">
+                            Stock Barhayein
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: Overdue Supplier Credits */}
+          {activeTab === "credits" && (
+            <div className="divide-y divide-slate-100">
+              {overdueCredits.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-500 space-y-1">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                  <p className="font-bold">Koi bhi 15 din purana udhaar pending nahi hai!</p>
+                  <p className="text-slate-400">Suppliers ka khata bilkul update hai.</p>
+                </div>
+              ) : (
+                overdueCredits.map((credit) => {
+                  const days = daysSince(credit.purchaseDate);
+
+                  return (
+                    <div
+                      key={credit.id}
+                      className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 truncate">
+                            {credit.supplierName}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {credit.supplierPhone}
+                          </span>
+                          <Badge variant="danger" className="text-[10px] py-0 animate-pulse">
+                            {days} Din Ho Gaye
+                          </Badge>
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          Maal: {credit.purchasedParts}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="font-black text-sm text-rose-600">
+                            {formatPKR(credit.remainingBalance)}
+                          </div>
+                          <div className="text-[10px] text-slate-400">Baqaya Dena Hai</div>
+                        </div>
+
+                        <Link href="/suppliers">
+                          <Button size="sm" className="h-8 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold">
+                            Payment Karein
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bill Receipt Modal */}
+      <ReceiptModal
+        bill={selectedBillForPrint}
+        isOpen={!!selectedBillForPrint}
+        onClose={() => setSelectedBillForPrint(null)}
+      />
     </div>
   );
 }

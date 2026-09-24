@@ -27,37 +27,37 @@ export function ReceiptModal({ bill, isOpen, onClose }: ReceiptModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Print Bill Receipt / پرچی پرنٹ کریں"
-      description="Thermal printer (80mm) ya Standard A4/A5 printer se receipt print karein"
+      title="Bill Parchi Print Karein"
+      description="Thermal 80mm ya Standard A4 printer se parchi print karein"
       maxWidth={format === "thermal" ? "md" : "2xl"}
     >
       <div className="space-y-4">
         {/* Controls */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-200/80 no-print">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">Copy:</span>
+            <span className="text-xs font-bold text-slate-600">Copy:</span>
             <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
               <button
                 type="button"
                 onClick={() => setCopyType("customer")}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
                   copyType === "customer"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Customer Copy
+                Gahak Copy
               </button>
               <button
                 type="button"
                 onClick={() => setCopyType("shop")}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
                   copyType === "shop"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Shop Copy
+                Dukan Copy
               </button>
             </div>
           </div>

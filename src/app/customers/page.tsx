@@ -15,12 +15,15 @@ import {
   Eye,
   History,
   TrendingUp,
+  X,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
+import { ReceiptModal } from "@/components/pos/receipt-modal";
 import { useStore } from "@/lib/storage/context";
 import { Customer, Bill } from "@/types";
 import { formatPKR, formatDate, formatDateTime } from "@/lib/utils";
@@ -34,6 +37,7 @@ export default function CustomersPage() {
 
   // Customer History Modal
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+  const [selectedBillForPrint, setSelectedBillForPrint] = useState<Bill | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -80,8 +84,8 @@ export default function CustomersPage() {
     setIsModalOpen(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this customer record?")) {
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Kya aap waqai "${name}" ka record delete karna chahte hain?`)) {
       await deleteCustomer(id);
     }
   };
@@ -104,53 +108,151 @@ export default function CustomersPage() {
     : [];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Users className="h-7 w-7 text-blue-600" />
-            Customer Management / کسٹمرز کا ریکارڈ
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Users className="h-6 w-6 text-blue-600" />
+            Gahak Record & Motorcycle Khata
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Customer details, motorcycle model & registration numbers, aur lifetime spending history.
+          <p className="text-xs text-slate-500">
+            Regular gahak, unka phone number, bike model aur kharidari ki tareekh.
           </p>
         </div>
 
-        <Button onClick={handleOpenAdd} size="lg" className="font-bold shadow-sm">
-          <Plus className="h-5 w-5 mr-1.5" />
-          Add Customer (نیا کسٹمر شامل کریں)
+        <Button
+          onClick={handleOpenAdd}
+          size="lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 text-xs sm:text-sm h-11"
+        >
+          <Plus className="h-4 w-4 mr-1.5" />
+          + Naya Gahak Shamil Karein
         </Button>
       </div>
 
-      {/* Search Bar */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
+      {/* Search Input */}
+      <Card className="glass-card border-slate-200/90 shadow-xs">
+        <CardContent className="p-3.5 sm:p-4">
           <div className="relative">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by customer name, phone number or motorcycle reg # (e.g. KHI-8291)..."
-              className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="Gahak ka naam, mobile number ya motorcycle number plate (e.g. KHI-8291) likhein..."
+              className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Customers Table */}
-      <Card className="glass-card overflow-hidden">
+      {/* Responsive View: Mobile Cards & Desktop Clean Table */}
+      {/* 1. Mobile Cards View */}
+      <div className="lg:hidden space-y-3">
+        {filteredCustomers.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl bg-white border border-slate-200 text-slate-400 text-xs">
+            Koi gahak nahi mila.
+          </div>
+        ) : (
+          filteredCustomers.map((customer) => (
+            <div
+              key={customer.id}
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    {customer.name}
+                  </h3>
+                  {customer.phone ? (
+                    <a
+                      href={`tel:${customer.phone}`}
+                      className="text-xs text-blue-700 font-bold font-mono mt-0.5 flex items-center gap-1.5 hover:underline"
+                    >
+                      <span className="p-1 rounded-full bg-emerald-100 text-emerald-700">
+                        <Phone className="h-3 w-3" />
+                      </span>
+                      <span>{customer.phone}</span>
+                      <span className="text-[10px] font-normal text-slate-400">(Call)</span>
+                    </a>
+                  ) : (
+                    <div className="text-xs text-slate-400 font-mono mt-0.5">
+                      No phone
+                    </div>
+                  )}
+                </div>
+
+                {customer.bikeRegNumber && (
+                  <Badge variant="outline" className="font-mono text-xs font-bold py-0.5">
+                    {customer.bikeRegNumber}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                <div>
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                    Motorcycle
+                  </div>
+                  <div className="font-bold text-slate-800">{customer.bikeModel}</div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                    Kul Kharidari
+                  </div>
+                  <div className="font-black text-slate-900">
+                    {formatPKR(customer.totalSpent)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs font-bold text-blue-700 border-blue-200 bg-blue-50/50"
+                  onClick={() => setHistoryCustomer(customer)}
+                >
+                  <History className="h-3.5 w-3.5 mr-1" />
+                  <span>Bills ({customer.totalVisits})</span>
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(customer)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(customer.id, customer.name)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 2. Desktop Clean Airy Table */}
+      <Card className="glass-card hidden lg:block overflow-hidden border-slate-200/90 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200/90 bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                <th className="py-3 px-4">Customer Name</th>
-                <th className="py-3 px-3">Phone Number</th>
-                <th className="py-3 px-3">Motorcycle Information</th>
-                <th className="py-3 px-3">Address</th>
+                <th className="py-3 px-4">Gahak Ka Naam</th>
+                <th className="py-3 px-3">Mobile Number</th>
+                <th className="py-3 px-3">Motorcycle Model</th>
+                <th className="py-3 px-3">Number Plate</th>
                 <th className="py-3 px-3 text-center">Visits</th>
-                <th className="py-3 px-3 text-right">Lifetime Spending</th>
+                <th className="py-3 px-3 text-right">Kul Kharidari (Spent)</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -158,72 +260,68 @@ export default function CustomersPage() {
               {filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
-                    No customers found matching your search.
+                    Koi gahak nahi mila.
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900">
-                      <div className="font-bold text-slate-900">{c.name}</div>
-                      {c.notes && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          {c.notes}
-                        </div>
-                      )}
+                filteredCustomers.map((customer) => (
+                  <tr
+                    key={customer.id}
+                    className="hover:bg-slate-50/80 transition"
+                  >
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      {customer.name}
                     </td>
 
-                    <td className="py-3.5 px-3 font-mono font-medium text-slate-700">
-                      {c.phone}
+                    <td className="py-3.5 px-3 font-mono text-slate-600">
+                      {customer.phone || "-"}
+                    </td>
+
+                    <td className="py-3.5 px-3 font-medium text-slate-800">
+                      {customer.bikeModel}
                     </td>
 
                     <td className="py-3.5 px-3">
-                      <div className="inline-flex items-center gap-1.5 font-bold text-slate-800">
-                        <Bike className="h-3.5 w-3.5 text-blue-600" />
-                        <span>{c.bikeModel || "Honda CD 70"}</span>
-                      </div>
-                      {c.bikeRegNumber && (
-                        <div className="text-[11px] font-mono text-slate-500">
-                          {c.bikeRegNumber}
-                        </div>
+                      {customer.bikeRegNumber ? (
+                        <Badge variant="outline" className="font-mono text-xs font-bold py-0.5">
+                          {customer.bikeRegNumber}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400">-</span>
                       )}
                     </td>
 
-                    <td className="py-3.5 px-3 text-slate-500 max-w-[200px] truncate">
-                      {c.address || "-"}
+                    <td className="py-3.5 px-3 text-center font-bold text-slate-700">
+                      {customer.totalVisits}
                     </td>
 
-                    <td className="py-3.5 px-3 text-center font-bold text-slate-800">
-                      <Badge variant="outline">{c.totalVisits} bills</Badge>
-                    </td>
-
-                    <td className="py-3.5 px-3 text-right font-black text-emerald-700 text-sm">
-                      {formatPKR(c.totalSpent)}
+                    <td className="py-3.5 px-3 text-right font-black text-slate-900">
+                      {formatPKR(customer.totalSpent)}
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-xs px-2 text-blue-600"
-                          onClick={() => setHistoryCustomer(c)}
-                          title="View Purchase History"
+                          className="h-7 text-xs font-bold text-blue-700 border-blue-200 bg-blue-50/50"
+                          onClick={() => setHistoryCustomer(customer)}
                         >
-                          <History className="h-3.5 w-3.5 mr-1" />
-                          History
+                          <History className="h-3 w-3 mr-1" />
+                          <span>Bills</span>
                         </Button>
+
                         <button
-                          onClick={() => handleOpenEdit(c)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition"
-                          title="Edit Customer"
+                          onClick={() => handleOpenEdit(customer)}
+                          className="p-1 text-slate-400 hover:text-blue-600 transition"
+                          title="Edit"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(c.id)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
-                          title="Delete Customer"
+                          onClick={() => handleDelete(customer.id, customer.name)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition"
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -241,71 +339,64 @@ export default function CustomersPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingCustomer ? "Edit Customer / کسٹمر ریکارڈ تبدیل کریں" : "Add New Customer / نیا کسٹمر شامل کریں"}
-        description="Enter customer personal and motorcycle registration details"
+        title={editingCustomer ? "Gahak Record Tabdeel Karein" : "Naya Gahak Shamil Karein"}
+        description="Gahak ka naam, phone number aur motorcycle ki details darj karein"
+        maxWidth="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Customer Full Name *"
+            label="Gahak Ka Naam *"
             required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g. Tariq Mahmood"
+            placeholder="e.g. Tariq Mehmood"
           />
 
           <Input
-            label="Phone Number *"
+            label="Mobile Phone Number *"
             required
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="0300-XXXXXXX"
+            placeholder="0300-1234567"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <Input
-              label="Motorcycle Reg #"
-              value={formData.bikeRegNumber}
-              onChange={(e) => setFormData({ ...formData, bikeRegNumber: e.target.value })}
-              placeholder="e.g. KHI-3450"
-            />
-
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
-                Motorcycle Model
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Motorcycle Model *
               </label>
               <select
                 value={formData.bikeModel}
                 onChange={(e) => setFormData({ ...formData, bikeModel: e.target.value })}
-                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500"
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
               >
                 <option value="Honda CD 70">Honda CD 70</option>
                 <option value="Honda CG 125">Honda CG 125</option>
                 <option value="Honda Pridor 100">Honda Pridor 100</option>
-                <option value="Honda CB 150F">Honda CB 150F</option>
                 <option value="Yamaha YBR 125">Yamaha YBR 125</option>
                 <option value="Suzuki GS 150">Suzuki GS 150</option>
                 <option value="Road Prince 70">Road Prince 70</option>
                 <option value="United 70">United 70</option>
-                <option value="Universal / Other">Universal / Other</option>
+                <option value="Other">Other</option>
               </select>
             </div>
+
+            <Input
+              label="Bike Reg # (Number Plate)"
+              value={formData.bikeRegNumber}
+              onChange={(e) => setFormData({ ...formData, bikeRegNumber: e.target.value })}
+              placeholder="e.g. KHI-8291"
+            />
           </div>
 
           <Input
-            label="Address"
+            label="Address / Area (Optional)"
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            placeholder="e.g. North Nazimabad, Karachi"
+            placeholder="e.g. Saddar, Karachi"
           />
 
-          <Input
-            label="Notes"
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="e.g. Regular rider, prefers genuine parts"
-          />
-
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="secondary"
@@ -313,85 +404,94 @@ export default function CustomersPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary">
-              {editingCustomer ? "Save Changes" : "Create Customer"}
+            <Button type="submit" variant="primary" className="font-bold">
+              {editingCustomer ? "Update Karein" : "Save Karein"}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Customer Purchase History Modal (Quotation requirement) */}
+      {/* Customer Past Bills History Modal */}
       <Modal
         isOpen={!!historyCustomer}
         onClose={() => setHistoryCustomer(null)}
-        title={`Purchase History: ${historyCustomer?.name}`}
-        description={`Lifetime Total Spent: ${formatPKR(historyCustomer?.totalSpent || 0)} across ${historyCustomer?.totalVisits || 0} visits`}
-        maxWidth="3xl"
+        title={`Gahak Ka Hisab: ${historyCustomer?.name || ""}`}
+        description={`Motorcycle: ${historyCustomer?.bikeModel || ""} (${historyCustomer?.bikeRegNumber || "No Reg #"})`}
+        maxWidth="2xl"
       >
         <div className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
             <div>
-              <span className="text-slate-500">Bike: </span>
-              <span className="font-bold text-slate-800">
-                {historyCustomer?.bikeModel} ({historyCustomer?.bikeRegNumber || "No Reg #"})
-              </span>
+              <span className="text-slate-500">Phone:</span>{" "}
+              <span className="font-bold text-slate-800">{historyCustomer?.phone}</span>
             </div>
             <div>
-              <span className="text-slate-500">Phone: </span>
-              <span className="font-bold text-slate-800">{historyCustomer?.phone}</span>
+              <span className="text-slate-500">Kul Kharidari:</span>{" "}
+              <span className="font-black text-emerald-600">
+                {formatPKR(historyCustomer?.totalSpent || 0)}
+              </span>
             </div>
           </div>
 
-          <div className="max-h-[360px] overflow-y-auto space-y-3">
+          <div className="divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
             {customerBills.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400">
-                No past bills recorded for this customer yet.
+              <div className="py-8 text-center text-xs text-slate-400">
+                Is gahak ka abhi tak koi bill record mein nahi hai.
               </div>
             ) : (
               customerBills.map((bill) => (
                 <div
                   key={bill.id}
-                  className="p-3.5 rounded-xl border border-slate-200 bg-white/80 space-y-2 shadow-xs"
+                  className="py-3 flex items-center justify-between gap-3 text-xs"
                 >
-                  <div className="flex items-center justify-between text-xs">
+                  <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-blue-700">{bill.billNumber}</span>
+                      <span className="font-mono font-bold text-blue-700">
+                        {bill.billNumber}
+                      </span>
                       <span className="text-slate-400">•</span>
                       <span className="text-slate-500">{formatDateTime(bill.createdAt)}</span>
                     </div>
-                    <div className="font-black text-slate-900">
-                      {formatPKR(bill.grandTotal)}
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {bill.items.map((i) => `${i.partName} (${i.quantity})`).join(", ")}
                     </div>
                   </div>
 
-                  {/* Purchased items list */}
-                  <div className="bg-slate-50 rounded-lg p-2 space-y-1">
-                    {bill.items.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between text-[11px] text-slate-700"
-                      >
-                        <span>
-                          {item.quantity}x {item.partName}
-                        </span>
-                        <span className="font-semibold text-slate-900">
-                          {formatPKR(item.totalPrice)}
-                        </span>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-black text-slate-900">
+                        {formatPKR(bill.grandTotal)}
                       </div>
-                    ))}
+                      <Badge
+                        variant={bill.status === "Completed" ? "success" : "danger"}
+                        className="text-[9px] py-0"
+                      >
+                        {bill.status === "Completed" ? "Ada Shuda" : "Mansookh"}
+                      </Badge>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setSelectedBillForPrint(bill)}
+                    >
+                      <Printer className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               ))
             )}
           </div>
-
-          <div className="flex justify-end pt-3 border-t border-slate-100">
-            <Button variant="secondary" onClick={() => setHistoryCustomer(null)}>
-              Close History
-            </Button>
-          </div>
         </div>
       </Modal>
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        bill={selectedBillForPrint}
+        isOpen={!!selectedBillForPrint}
+        onClose={() => setSelectedBillForPrint(null)}
+      />
     </div>
   );
 }

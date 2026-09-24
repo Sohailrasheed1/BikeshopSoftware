@@ -14,8 +14,11 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Demo shop credentials
-        if (credentials.username === "admin" && credentials.password === "admin123") {
+        // Demo shop credentials (username or email)
+        const u = credentials.username.toLowerCase().trim();
+        const p = credentials.password;
+
+        if ((u === "admin" || u === "admin@skanderparts.pk") && p === "admin123") {
           return {
             id: "u-1",
             name: "Skander (Owner / Admin)",
@@ -24,7 +27,7 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
-        if (credentials.username === "staff" && credentials.password === "staff123") {
+        if ((u === "staff" || u === "staff@skanderparts.pk") && p === "staff123") {
           return {
             id: "u-2",
             name: "Shop Assistant",
@@ -34,7 +37,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Allow owner Sohail login as well
-        if (credentials.username.toLowerCase() === "sohail" && credentials.password === "sohail123") {
+        if ((u === "sohail" || u === "sohail@skanderparts.pk") && p === "sohail123") {
           return {
             id: "u-3",
             name: "Sohail Rasheed (Manager)",

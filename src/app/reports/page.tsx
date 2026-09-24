@@ -12,6 +12,8 @@ import {
   Receipt,
   Layers,
   Award,
+  ArrowUpRight,
+  TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -77,7 +79,17 @@ export default function ReportsPage() {
 
   // CSV Export Feature
   const handleExportCSV = () => {
-    const headers = ["Bill Number", "Date", "Customer Name", "Phone", "Bike Model", "Bike Reg", "Items Sold", "Total Amount", "Payment Method"];
+    const headers = [
+      "Bill Number",
+      "Date",
+      "Customer Name",
+      "Phone",
+      "Bike Model",
+      "Bike Reg",
+      "Items Count",
+      "Total Amount",
+      "Payment Method",
+    ];
     const rows = activeBills.map((b) => [
       b.billNumber,
       formatDate(b.createdAt),
@@ -107,251 +119,195 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <BarChart3 className="h-7 w-7 text-blue-600" />
-            Reports & Business Analytics / کاروباری رپورٹس
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-blue-600" />
+            Munafa & Karobari Reports
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Daily, Monthly aur Yearly sales reports, munafa (profit) aur top-selling motorcycle parts.
+          <p className="text-xs text-slate-500">
+            Dukan ki bikri, kharcha, saafi munafa aur sab se zyada bikne wale parts.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <Button
-            onClick={handleExportCSV}
+            size="sm"
             variant="outline"
-            size="md"
-            className="text-xs font-bold"
+            className="h-10 text-xs font-bold text-slate-700 bg-white"
+            onClick={handleExportCSV}
           >
-            <Download className="h-4 w-4 mr-1.5" />
-            Export CSV
-          </Button>
-          <Button
-            onClick={() => window.print()}
-            variant="secondary"
-            size="md"
-            className="text-xs font-bold"
-          >
-            <Printer className="h-4 w-4 mr-1.5" />
-            Print Report
+            <Download className="h-4 w-4 mr-1.5 text-slate-500" />
+            <span>Excel / CSV Report</span>
           </Button>
         </div>
       </div>
 
-      {/* Report Period Selector */}
-      <Card className="glass-card">
-        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setReportType("daily")}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition ${
-                reportType === "daily"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Daily Report (آج کی رپورٹ)
-            </button>
-            <button
-              type="button"
-              onClick={() => setReportType("monthly")}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition ${
-                reportType === "monthly"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Monthly Report (ماہانہ رپورٹ)
-            </button>
-            <button
-              type="button"
-              onClick={() => setReportType("yearly")}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition ${
-                reportType === "yearly"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Yearly Report (سالانہ رپورٹ)
-            </button>
-          </div>
+      {/* Timeframe Period Switcher */}
+      <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-fit border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setReportType("daily")}
+          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+            reportType === "daily"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          📅 Aaj Ka Din (Daily)
+        </button>
+        <button
+          type="button"
+          onClick={() => setReportType("monthly")}
+          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+            reportType === "monthly"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          🗓️ Is Mahine Ka (Monthly)
+        </button>
+        <button
+          type="button"
+          onClick={() => setReportType("yearly")}
+          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+            reportType === "yearly"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          📊 Poora Saal (Yearly)
+        </button>
+      </div>
 
-          <div className="text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border">
-            Reporting Period:{" "}
-            <span className="text-blue-700 font-bold uppercase">
-              {reportType === "daily"
-                ? `Today (${todayStr})`
-                : reportType === "monthly"
-                ? `Month (${currentMonthStr})`
-                : `Year (${currentYearStr})`}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* KPI Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Revenue / کل بکری
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-slate-900">
+      {/* 4 Clean Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        {/* Total Sales / Revenue */}
+        <Card className="glass-card border-slate-200/90">
+          <CardContent className="p-4 sm:p-5">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              Kul Bikri (Total Sales)
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
               {formatPKR(totalRevenue)}
             </div>
-            <div className="mt-1 text-xs text-slate-500">
-              from {totalBillsCount} completed bills
+            <div className="text-xs text-slate-500 mt-1">
+              <span className="font-bold text-slate-700">{totalBillsCount} Bills</span> se hasil hui
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Estimated Gross Profit
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-emerald-600">
+        {/* Cost / Kharid Lagat */}
+        <Card className="glass-card border-slate-200/90">
+          <CardContent className="p-4 sm:p-5">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              Saman Ki Lagat (Cost)
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-700 mt-1">
+              {formatPKR(estimatedCost)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              Saman ki asal wholesale kharid
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Net Profit */}
+        <Card className="glass-card border-emerald-300 bg-emerald-50/40">
+          <CardContent className="p-4 sm:p-5">
+            <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">
+              Saafi Munafa (Net Profit)
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">
               {formatPKR(estimatedProfit)}
             </div>
-            <div className="mt-1 text-xs text-emerald-700 font-semibold">
-              ~{profitMarginPercent}% profit margin
+            <div className="text-xs text-emerald-800 font-bold mt-1">
+              +{profitMarginPercent}% Munafa Margin
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Parts Sold
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-blue-700">
-              {totalItemsSold}
+        {/* Items Sold */}
+        <Card className="glass-card border-slate-200/90">
+          <CardContent className="p-4 sm:p-5">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              Bikne Wala Saman
             </div>
-            <div className="mt-1 text-xs text-slate-500">
-              pieces sold across all bills
+            <div className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
+              {totalItemsSold} Pieces
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Average Bill Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-slate-900">
-              {totalBillsCount > 0
-                ? formatPKR(Math.round(totalRevenue / totalBillsCount))
-                : "Rs. 0"}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              per customer transaction
+            <div className="text-xs text-slate-500 mt-1">
+              Mukhtalif motorcycle parts
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Two Column Grid: Top-Selling Parts & Sales Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Top-Selling Parts (7 Cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center gap-2">
-            <Award className="h-5 w-5 text-amber-500" />
-            <h2 className="text-base font-bold text-slate-900">
-              Top-Selling Motorcycle Parts / سب سے زیادہ بکنے والے پرزے
-            </h2>
-          </div>
+      {/* Top Selling Parts Card */}
+      <Card className="glass-card border-slate-200/90 shadow-xs">
+        <CardHeader className="p-4 sm:p-5 border-b border-slate-100 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <Award className="h-4 w-4 text-amber-500" />
+            Sab Se Zyada Bikne Wale Motorcycle Parts
+          </CardTitle>
+          <span className="text-xs text-slate-400 font-semibold">
+            {topSellingParts.length} parts shamil hain
+          </span>
+        </CardHeader>
 
-          <Card className="glass-card overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                  <th className="py-3 px-4">Rank & Part Name</th>
-                  <th className="py-3 px-3">Category</th>
-                  <th className="py-3 px-3 text-center">Qty Sold</th>
-                  <th className="py-3 px-4 text-right">Revenue Generated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {topSellingParts.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-400">
-                      Is period mein koi parts nahi bikey.
-                    </td>
-                  </tr>
-                ) : (
-                  topSellingParts.slice(0, 10).map((part, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition">
-                      <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2.5">
-                        <span className="h-6 w-6 rounded-full bg-slate-100 border text-slate-700 flex items-center justify-center font-bold text-xs">
-                          {idx + 1}
-                        </span>
-                        <span>{part.partName}</span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-500">{part.category}</td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-800">
-                        <Badge variant="info">{part.quantity} pcs</Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right font-black text-slate-900">
-                        {formatPKR(part.revenue)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </Card>
-        </div>
-
-        {/* Transaction Summary (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-blue-600" />
-            <h2 className="text-base font-bold text-slate-900">
-              Period Invoices Summary
-            </h2>
-          </div>
-
-          <Card className="glass-card p-4 space-y-3">
-            {activeBills.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-8">
-                Is dauraan koi bill nahi bana.
-              </p>
+        <CardContent className="p-0">
+          <div className="divide-y divide-slate-100">
+            {topSellingParts.length === 0 ? (
+              <div className="p-10 text-center text-xs text-slate-400">
+                Is dauran koi saman nahi bika.
+              </div>
             ) : (
-              activeBills.slice(0, 8).map((b) => (
+              topSellingParts.map((part, index) => (
                 <div
-                  key={b.id}
-                  className="p-3 rounded-xl bg-white border border-slate-100 flex items-center justify-between text-xs"
+                  key={index}
+                  className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3 text-xs"
                 >
-                  <div>
-                    <div className="font-bold text-slate-800">
-                      {b.billNumber} • {b.customerName}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`h-7 w-7 rounded-lg flex items-center justify-center font-black text-xs ${
+                        index === 0
+                          ? "bg-amber-100 text-amber-800"
+                          : index === 1
+                          ? "bg-slate-200 text-slate-700"
+                          : index === 2
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      #{index + 1}
                     </div>
-                    <div className="text-[10px] text-slate-400">
-                      {formatDate(b.createdAt)} • {b.paymentMethod}
+
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-slate-900 truncate">
+                        {part.partName}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {part.category}
+                      </div>
                     </div>
                   </div>
-                  <div className="font-black text-slate-900 text-sm">
-                    {formatPKR(b.grandTotal)}
+
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-black text-sm text-slate-900">
+                      {part.quantity} pieces bikey
+                    </div>
+                    <div className="text-[11px] font-bold text-emerald-600">
+                      {formatPKR(part.revenue)}
+                    </div>
                   </div>
                 </div>
               ))
             )}
-          </Card>
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

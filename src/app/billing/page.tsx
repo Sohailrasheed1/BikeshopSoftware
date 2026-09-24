@@ -14,6 +14,12 @@ import {
   Receipt,
   ShoppingCart,
   Percent,
+  ChevronDown,
+  ChevronUp,
+  X,
+  CreditCard,
+  Phone,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +34,18 @@ import { formatPKR } from "@/lib/utils";
 export default function BillingPage() {
   const { parts, customers, createBill, addCustomer } = useStore();
 
-  // Search & Cart State
+  // Mobile Tab View: 'catalog' or 'cart'
+  const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
+
+  // Search & Filters
   const [partSearch, setPartSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
+
+  // Cart State
   const [cart, setCart] = useState<BillItem[]>([]);
 
-  // Customer State
+  // Customer Details (Collapsed by default for zero-clutter fast sales)
+  const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("Walk-in Customer");
   const [customerPhone, setCustomerPhone] = useState<string>("");
@@ -55,7 +67,7 @@ export default function BillingPage() {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Handle Customer Selection
+  // Select Existing Customer
   const handleSelectCustomer = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const custId = e.target.value;
     setSelectedCustomerId(custId);
@@ -81,7 +93,7 @@ export default function BillingPage() {
   const handleAddToCart = (part: Part) => {
     setErrorMessage("");
     if (part.currentStock <= 0) {
-      setErrorMessage(`"${part.name}" is completely out of stock!`);
+      setErrorMessage(`"${part.name}" ka stock khatam hai!`);
       return;
     }
 
@@ -90,7 +102,7 @@ export default function BillingPage() {
       const currentQty = cart[existingIndex].quantity;
       if (currentQty + 1 > part.currentStock) {
         setErrorMessage(
-          `Cannot add more! Only ${part.currentStock} units available for "${part.name}".`
+          `Dukan mein sirf ${part.currentStock} units maujood hain!`
         );
         return;
       }
@@ -128,7 +140,7 @@ export default function BillingPage() {
 
     if (newQty > part.currentStock) {
       setErrorMessage(
-        `Cannot add more! Available stock for "${part.name}" is ${part.currentStock}.`
+        `Sirf ${part.currentStock} units stock mein maujood hain!`
       );
       return;
     }
@@ -146,13 +158,14 @@ export default function BillingPage() {
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => acc + item.totalPrice, 0);
+  const totalItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
   const grandTotal = Math.max(0, subtotal - (Number(discount) || 0));
 
   // Save Bill
   const handleCompleteBill = async () => {
     setErrorMessage("");
     if (cart.length === 0) {
-      setErrorMessage("Khaali bill save nahi ho sakta! Please add parts to the bill.");
+      setErrorMessage("Khaali bill save nahi ho sakta! Baraye meharbani pehle saman add karein.");
       return;
     }
 
@@ -183,8 +196,14 @@ export default function BillingPage() {
       setCart([]);
       setDiscount(0);
       setNotes("");
+      setShowCustomerDetails(false);
+      setSelectedCustomerId("");
+      setCustomerName("Walk-in Customer");
+      setCustomerPhone("");
+      setBikeRegNumber("");
+      setMobileTab("catalog");
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to generate bill.");
+      setErrorMessage(err.message || "Bill banane mein masla aaya.");
     } finally {
       setIsSubmitting(false);
     }
@@ -192,10 +211,12 @@ export default function BillingPage() {
 
   // Filter Parts Catalog
   const filteredParts = parts.filter((part) => {
+    const s = partSearch.toLowerCase();
     const matchesSearch =
-      part.name.toLowerCase().includes(partSearch.toLowerCase()) ||
-      part.category.toLowerCase().includes(partSearch.toLowerCase()) ||
-      (part.sku && part.sku.toLowerCase().includes(partSearch.toLowerCase()));
+      part.name.toLowerCase().includes(s) ||
+      part.category.toLowerCase().includes(s) ||
+      part.compatibleModels.some((m) => m.toLowerCase().includes(s)) ||
+      (part.sku && part.sku.toLowerCase().includes(s));
 
     const matchesCategory =
       categoryFilter === "All" || part.category === categoryFilter;
@@ -204,316 +225,431 @@ export default function BillingPage() {
   });
 
   const categories = [
-    "All",
-    "Engine & Transmission",
-    "Brakes & Clutch",
-    "Electrical & Battery",
-    "Body, Lights & Mirrors",
-    "Suspension & Fork",
-    "Tyres & Tubes",
-    "Chains & Sprockets",
-    "Oils & Lubricants",
-    "Accessories & General",
+    { label: "Sab Saman", value: "All" },
+    { label: "Engine & Gear", value: "Engine & Transmission" },
+    { label: "Brakes & Clutch", value: "Brakes & Clutch" },
+    { label: "Battery & Lights", value: "Electrical & Battery" },
+    { label: "Body & Mirrors", value: "Body, Lights & Mirrors" },
+    { label: "Shock & Fork", value: "Suspension & Fork" },
+    { label: "Tyres & Tubes", value: "Tyres & Tubes" },
+    { label: "Chains & Sprockets", value: "Chains & Sprockets" },
+    { label: "Engine Oil", value: "Oils & Lubricants" },
+    { label: "Accessories", value: "Accessories & General" },
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-300">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Receipt className="h-7 w-7 text-blue-600" />
-            Fast Billing & Counter POS
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Receipt className="h-6 w-6 text-blue-600" />
+            Naya Bill Banayein (Counter Billing)
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Parts select karein, customer bike details add karein aur turant receipt print karein.
+          <p className="text-xs text-slate-500">
+            Saman select karein, bill banayein aur turant parchi print karein.
           </p>
+        </div>
+
+        {/* Mobile Tab Switcher */}
+        <div className="lg:hidden flex items-center rounded-xl bg-slate-200/80 p-1 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setMobileTab("catalog")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition ${
+              mobileTab === "catalog"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-600"
+            }`}
+          >
+            🛒 Saman Catalog ({filteredParts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("cart")}
+            className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
+              mobileTab === "cart"
+                ? "bg-white text-blue-700 shadow-sm"
+                : "text-slate-600"
+            }`}
+          >
+            <span>🧾 Bill Parchi</span>
+            {cart.length > 0 && (
+              <span className="h-5 px-1.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {cart.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Error / Alert notification */}
+      {/* Error Alert */}
       {errorMessage && (
-        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
-          <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center justify-between gap-2.5 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            onClick={() => setErrorMessage("")}
+            className="text-rose-500 hover:text-rose-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
-      {/* Main POS Layout: 2 Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: Customer Selection & Parts Catalog (7 Cols) */}
-        <div className="lg:col-span-7 space-y-5">
-          {/* Customer Selection Card */}
-          <Card className="glass-card">
-            <CardHeader className="pb-3 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-blue-600" />
-                  Customer & Motorcycle Details
-                </CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs font-semibold"
-                  onClick={() => setIsNewCustomerModalOpen(true)}
+      {/* Customer Info Strip (Clean & Non-Intrusive) */}
+      <Card className="glass-card border-slate-200/90 shadow-sm">
+        <CardContent className="p-3.5 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold flex-shrink-0">
+                <UserCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">
+                    Gahak:
+                  </span>
+                  <span className="text-xs font-extrabold text-blue-700">
+                    {customerName}
+                  </span>
+                  {bikeRegNumber && (
+                    <Badge variant="outline" className="text-[10px] py-0 font-mono">
+                      {bikeRegNumber} ({bikeModel})
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {customerPhone ? `Mobile: ${customerPhone}` : "Aam Naqad Bikri (Walk-in Cash Sale)"}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => setShowCustomerDetails(!showCustomerDetails)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100/80 transition flex items-center gap-1"
+              >
+                <span>{showCustomerDetails ? "Chupayein" : "+ Gahak / Bike Details"}</span>
+                {showCustomerDetails ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Customer Form for Specific Bike / Account Customers */}
+          {showCustomerDetails && (
+            <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 animate-in fade-in">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Purana Gahak Chunein
+                </label>
+                <select
+                  value={selectedCustomerId}
+                  onChange={handleSelectCustomer}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
                 >
-                  + Add New Customer
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
-                    Select Existing Customer
-                  </label>
-                  <select
-                    value={selectedCustomerId}
-                    onChange={handleSelectCustomer}
-                    className="w-full h-10 rounded-xl border border-slate-200 bg-white/90 px-3 text-xs font-medium text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="">Walk-in / Cash Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.phone}) - {c.bikeModel}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <Input
-                    label="Customer Name"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter customer name"
-                    className="h-10 text-xs"
-                  />
-                </div>
+                  <option value="">Aam Gahak (Walk-in)</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.phone}) - {c.bikeModel}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Motorcycle Details (Quotation Requirement) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2 border-t border-slate-100">
-                <div>
-                  <Input
-                    label="Phone Number"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="0300-XXXXXXX"
-                    className="h-10 text-xs"
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Motorcycle Reg #"
-                    value={bikeRegNumber}
-                    onChange={(e) => setBikeRegNumber(e.target.value)}
-                    placeholder="e.g. KHI-8291"
-                    className="h-10 text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
-                    Bike Model / Type
-                  </label>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Gahak Ka Naam
+                </label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Naam likhein"
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Mobile Number
+                </label>
+                <input
+                  type="text"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="0300-XXXXXXX"
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Bike Model & Number Plate
+                </label>
+                <div className="flex gap-1.5">
                   <select
                     value={bikeModel}
                     onChange={(e) => setBikeModel(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-slate-200 bg-white/90 px-3 text-xs font-medium text-slate-800 shadow-sm focus:border-blue-500 focus:outline-none"
+                    className="w-1/2 h-9 rounded-lg border border-slate-200 bg-white px-1.5 text-xs text-slate-800 focus:outline-none"
                   >
-                    <option value="Honda CD 70">Honda CD 70</option>
-                    <option value="Honda CG 125">Honda CG 125</option>
-                    <option value="Honda Pridor 100">Honda Pridor 100</option>
-                    <option value="Yamaha YBR 125">Yamaha YBR 125</option>
-                    <option value="Suzuki GS 150">Suzuki GS 150</option>
-                    <option value="Road Prince 70">Road Prince 70</option>
+                    <option value="Honda CD 70">CD 70</option>
+                    <option value="Honda CG 125">CG 125</option>
+                    <option value="Honda Pridor 100">Pridor</option>
+                    <option value="Yamaha YBR 125">YBR 125</option>
+                    <option value="Suzuki GS 150">GS 150</option>
                     <option value="United 70">United 70</option>
-                    <option value="Universal / Other">Universal / Other</option>
+                    <option value="Road Prince 70">Road Prince</option>
+                    <option value="Other">Other</option>
                   </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Parts Search & Catalog */}
-          <Card className="glass-card">
-            <CardHeader className="pb-3 border-b border-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-blue-600" />
-                  Spare Parts Catalog / پرزہ منتخب کریں
-                </CardTitle>
-                <span className="text-xs font-medium text-slate-500">
-                  {filteredParts.length} parts found
-                </span>
-              </div>
-
-              {/* Search Bar & Category Filters */}
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    value={partSearch}
-                    onChange={(e) => setPartSearch(e.target.value)}
-                    placeholder="Search by part name, SKU, or category (e.g. CD70 piston, brake shoe, oil)..."
-                    className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-sm"
+                    value={bikeRegNumber}
+                    onChange={(e) => setBikeRegNumber(e.target.value)}
+                    placeholder="KHI-1234"
+                    className="w-1/2 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800 focus:outline-none"
                   />
                 </div>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`whitespace-nowrap px-2.5 py-1 rounded-lg font-semibold transition ${
-                        categoryFilter === cat
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
               </div>
-            </CardHeader>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-            <CardContent className="pt-3">
-              <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
-                {filteredParts.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400">
-                    Koi part nahi mila. Search check karein ya naya part add karein.
-                  </div>
-                ) : (
-                  filteredParts.map((part) => {
-                    const isOutOfStock = part.currentStock <= 0;
-                    const isLowStock =
-                      part.currentStock > 0 && part.currentStock <= part.minStockLimit;
+      {/* Main Billing Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        {/* LEFT COLUMN: Parts Catalog (Visible if desktop OR mobileTab === 'catalog') */}
+        <div
+          className={`lg:col-span-7 space-y-4 ${
+            mobileTab === "cart" ? "hidden lg:block" : "block"
+          }`}
+        >
+          {/* Search & Category Filter */}
+          <div className="space-y-2.5">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={partSearch}
+                onChange={(e) => setPartSearch(e.target.value)}
+                placeholder="Saman ka naam, bike model ya part code likhein (e.g. CD 70 Piston, Brake shoe, Caltex oil)..."
+                className="w-full h-11 pl-10 pr-9 rounded-xl border border-slate-200/90 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 shadow-xs"
+              />
+              {partSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPartSearch("")}
+                  className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
-                    return (
-                      <div
-                        key={part.id}
-                        className={`p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
-                          isOutOfStock
-                            ? "bg-slate-50/50 border-slate-200 opacity-60"
-                            : "bg-white/80 border-slate-200/80 hover:border-blue-300 hover:shadow-sm"
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-slate-900">
-                              {part.name}
-                            </span>
-                            {part.sku && (
-                              <span className="text-[10px] font-mono text-slate-400">
-                                #{part.sku}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                            <span>{part.category}</span>
-                            <span>•</span>
-                            <span className="font-semibold text-slate-700">
-                              Stock: {part.currentStock}
-                            </span>
-                            {isOutOfStock ? (
-                              <Badge variant="danger" className="text-[10px] py-0">
-                                Out of Stock
-                              </Badge>
-                            ) : isLowStock ? (
-                              <Badge variant="warning" className="text-[10px] py-0">
-                                Low Stock
-                              </Badge>
-                            ) : (
-                              <Badge variant="success" className="text-[10px] py-0">
-                                Available
-                              </Badge>
-                            )}
-                          </div>
+            {/* Quick Category Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+              {categories.map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat.value)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-lg font-bold transition text-xs ${
+                    categoryFilter === cat.value
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Parts List */}
+          <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
+            {filteredParts.length === 0 ? (
+              <div className="p-10 text-center rounded-2xl bg-white border border-slate-200 text-slate-400 text-xs">
+                Koi saman nahi mila. Spelling check karein ya search filter hataein.
+              </div>
+            ) : (
+              filteredParts.map((part) => {
+                const isOutOfStock = part.currentStock <= 0;
+                const isLowStock =
+                  part.currentStock > 0 && part.currentStock <= part.minStockLimit;
+
+                return (
+                  <div
+                    key={part.id}
+                    className={`p-3 sm:p-3.5 rounded-xl border transition flex items-center justify-between gap-3 ${
+                      isOutOfStock
+                        ? "bg-slate-50/70 border-slate-200 opacity-60"
+                        : "bg-white border-slate-200/90 hover:border-blue-300 hover:shadow-xs"
+                    }`}
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-xs sm:text-sm text-slate-900 leading-snug">
+                          {part.name}
+                        </span>
+                        {part.sku && (
+                          <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            #{part.sku}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                        <span className="text-blue-700 font-semibold">
+                          {part.compatibleModels.slice(0, 2).join(", ")}
+                        </span>
+                        <span>•</span>
+                        {isOutOfStock ? (
+                          <Badge variant="danger" className="text-[10px] py-0 font-bold">
+                            Stock Khatam
+                          </Badge>
+                        ) : isLowStock ? (
+                          <Badge variant="warning" className="text-[10px] py-0 font-bold">
+                            Sirf {part.currentStock} Baqi
+                          </Badge>
+                        ) : (
+                          <span className="text-emerald-700 font-bold">
+                            Stock: {part.currentStock}
+                          </span>
+                        )}
+                        {part.location && (
+                          <span className="text-slate-400">({part.location})</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <div className="font-black text-sm sm:text-base text-slate-900">
+                          {formatPKR(part.sellingPrice)}
                         </div>
+                        <div className="text-[10px] text-slate-400">fee nag</div>
+                      </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="font-black text-sm text-slate-900">
-                              {formatPKR(part.sellingPrice)}
+                      {(() => {
+                        const inCartItem = cart.find((item) => item.partId === part.id);
+                        if (inCartItem) {
+                          return (
+                            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 p-1 rounded-xl shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQuantity(part.id, -1)}
+                                className="h-7 w-7 rounded-lg bg-white text-emerald-800 font-bold flex items-center justify-center hover:bg-emerald-100 active:scale-95 shadow-xs"
+                                title="1 kam karein"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="w-6 text-center text-xs font-black text-emerald-900">
+                                {inCartItem.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQuantity(part.id, 1)}
+                                className="h-7 w-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center hover:bg-emerald-700 active:scale-95 shadow-xs"
+                                title="1 barhayein"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            <div className="text-[10px] text-slate-400">per piece</div>
-                          </div>
+                          );
+                        }
 
+                        return (
                           <Button
                             size="sm"
                             disabled={isOutOfStock}
                             onClick={() => handleAddToCart(part)}
-                            className="h-8 px-3 font-bold text-xs"
-                            variant={isOutOfStock ? "secondary" : "primary"}
+                            className={`h-9 px-3.5 font-bold text-xs shadow-xs ${
+                              isOutOfStock
+                                ? "bg-slate-200 text-slate-400"
+                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                            }`}
                           >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add
+                            <Plus className="h-4 w-4 mr-1" />
+                            <span>Add</span>
                           </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* RIGHT COLUMN: Active Bill Cart & Checkout (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="glass-card sticky top-20 shadow-md">
-            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+        {/* RIGHT COLUMN: Active Bill Cart (Visible if desktop OR mobileTab === 'cart') */}
+        <div
+          className={`lg:col-span-5 space-y-4 ${
+            mobileTab === "catalog" ? "hidden lg:block" : "block"
+          }`}
+        >
+          <Card className="glass-card shadow-md border-slate-200/90 sticky top-20">
+            <CardHeader className="p-4 border-b border-slate-100 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <CardTitle className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-blue-600" />
-                  Current Bill / موجودہ بل
+                  Maujooda Bill (Cart)
                 </CardTitle>
                 <div className="text-[11px] text-slate-500 font-medium">
-                  {cart.length} unique items in bill
+                  {cart.length} types ka saman • {totalItemCount} pieces
                 </div>
               </div>
 
               {cart.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs text-rose-600 hover:text-rose-700"
+                <button
+                  type="button"
                   onClick={() => setCart([])}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 px-2 py-1 rounded hover:bg-rose-50 transition"
                 >
-                  Clear All
-                </Button>
+                  Khaali Karein
+                </button>
               )}
             </CardHeader>
 
-            <CardContent className="pt-4 space-y-4">
-              {/* Itemized Cart List */}
-              <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+            <CardContent className="p-4 space-y-4">
+              {/* Item List */}
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
                 {cart.length === 0 ? (
-                  <div className="text-center py-10 space-y-2">
+                  <div className="text-center py-12 space-y-2">
                     <ShoppingCart className="h-10 w-10 text-slate-300 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-600">
-                      Bill is empty
+                    <p className="text-xs font-bold text-slate-700">
+                      Bill abhi khaali hai
                     </p>
-                    <p className="text-[11px] text-slate-400">
-                      Left side se parts search karke add karein
+                    <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                      Saman ki list se koi bhi part chunein aur &quot;Add&quot; par click karein.
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab("catalog")}
+                      className="lg:hidden text-xs font-bold text-blue-600 underline pt-2"
+                    >
+                      Saman Catalog Kholein
+                    </button>
                   </div>
                 ) : (
                   cart.map((item) => (
                     <div
                       key={item.partId}
-                      className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-between gap-2"
+                      className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-xs text-slate-900 truncate">
+                        <div className="font-extrabold text-xs text-slate-900 truncate">
                           {item.partName}
                         </div>
                         <div className="text-[10px] text-slate-500">
-                          {formatPKR(item.unitPrice)} each
+                          {formatPKR(item.unitPrice)} fee nag
                         </div>
                       </div>
 
@@ -522,33 +658,34 @@ export default function BillingPage() {
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(item.partId, -1)}
-                          className="h-6 w-6 rounded bg-white text-slate-700 flex items-center justify-center hover:bg-slate-200 shadow-xs"
+                          className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
-                        <span className="w-6 text-center text-xs font-bold text-slate-800">
+                        <span className="w-6 text-center text-xs font-black text-slate-900">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(item.partId, 1)}
-                          className="h-6 w-6 rounded bg-white text-slate-700 flex items-center justify-center hover:bg-slate-200 shadow-xs"
+                          className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
 
-                      {/* Line Total & Delete */}
+                      {/* Line Total */}
                       <div className="text-right min-w-[70px]">
                         <div className="font-black text-xs text-slate-900">
                           {formatPKR(item.totalPrice)}
                         </div>
                       </div>
 
+                      {/* Delete */}
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(item.partId)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded"
+                        className="p-1 text-slate-300 hover:text-rose-600 rounded transition"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -557,90 +694,118 @@ export default function BillingPage() {
                 )}
               </div>
 
-              {/* Bill Totals & Discount */}
-              <div className="space-y-2 pt-3 border-t border-slate-100 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal:</span>
-                  <span className="font-bold text-slate-800">{formatPKR(subtotal)}</span>
-                </div>
+              {/* Bill Totals & Payment Section */}
+              {cart.length > 0 && (
+                <div className="pt-3 border-t border-slate-200/90 space-y-3">
+                  {/* Subtotal */}
+                  <div className="flex justify-between items-center text-xs text-slate-600">
+                    <span>Kul Raqam (Subtotal):</span>
+                    <span className="font-bold text-slate-900">
+                      {formatPKR(subtotal)}
+                    </span>
+                  </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-600 flex items-center gap-1">
-                    <Percent className="h-3.5 w-3.5 text-blue-600" />
-                    Discount (Rs.):
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discount || ""}
-                    onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
-                    placeholder="0"
-                    className="w-24 h-8 rounded-lg border border-slate-200 text-right px-2 text-xs font-bold text-emerald-700 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+                  {/* Discount / Choot */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-slate-600">
+                      Choot / Discount (Rs):
+                    </span>
+                    <div className="w-28">
+                      <input
+                        type="number"
+                        min="0"
+                        value={discount === 0 ? "" : discount}
+                        onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full h-8 px-2 text-right rounded-lg border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
 
-                <div className="flex justify-between items-baseline pt-2 border-t border-slate-200 text-base font-black text-slate-900">
-                  <span>Grand Total:</span>
-                  <span className="text-lg text-blue-700">{formatPKR(grandTotal)}</span>
-                </div>
-              </div>
+                  {/* Payment Method Selector */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-[11px] font-bold text-slate-600">
+                      Paise Kaise Liye (Payment Method):
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5 text-xs">
+                      {[
+                        { label: "💵 Naqad (Cash)", val: "Cash" },
+                        { label: "📱 EasyPaisa/Jazz", val: "EasyPaisa / JazzCash" },
+                        { label: "🏦 Bank Transfer", val: "Bank Transfer" },
+                        { label: "📝 Udhaar (Credit)", val: "Udhaar / Credit" },
+                      ].map((m) => (
+                        <button
+                          key={m.val}
+                          type="button"
+                          onClick={() => setPaymentMethod(m.val as any)}
+                          className={`p-2 rounded-lg font-bold text-left transition ${
+                            paymentMethod === m.val
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Payment Method Selector */}
-              <div className="space-y-1.5 pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Payment Method
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {(
-                    ["Cash", "EasyPaisa / JazzCash", "Bank Transfer", "Udhaar / Credit"] as const
-                  ).map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setPaymentMethod(method)}
-                      className={`p-2 rounded-xl border text-center font-bold transition ${
-                        paymentMethod === method
-                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {method}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* Grand Total Bar */}
+                  <div className="p-3 rounded-xl bg-slate-900 text-white flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Net Total Raqam
+                      </div>
+                      <div className="text-xs text-slate-300">
+                        {cart.length} items • {totalItemCount} pieces
+                      </div>
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black text-emerald-400">
+                      {formatPKR(grandTotal)}
+                    </div>
+                  </div>
 
-              {/* Checkout / Print Action */}
-              <div className="pt-2">
-                <Button
-                  onClick={handleCompleteBill}
-                  disabled={cart.length === 0 || isSubmitting}
-                  isLoading={isSubmitting}
-                  size="lg"
-                  className="w-full font-black text-sm shadow-md"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Save & Print Bill ({formatPKR(grandTotal)})
-                </Button>
-              </div>
+                  {/* Submit / Print Bill Button */}
+                  <Button
+                    size="lg"
+                    disabled={isSubmitting || cart.length === 0}
+                    onClick={handleCompleteBill}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-xl shadow-md shadow-blue-600/30 transition flex items-center justify-center gap-2"
+                  >
+                    <Printer className="h-5 w-5" />
+                    <span>{isSubmitting ? "Bill Ban Raha Hai..." : "Bill Banayein & Parchi Print Karein"}</span>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Quick Add New Customer Modal */}
-      <QuickAddCustomerModal
-        isOpen={isNewCustomerModalOpen}
-        onClose={() => setIsNewCustomerModalOpen(false)}
-        onCreated={(cust) => {
-          setSelectedCustomerId(cust.id);
-          setCustomerName(cust.name);
-          setCustomerPhone(cust.phone);
-          setBikeRegNumber(cust.bikeRegNumber);
-          setBikeModel(cust.bikeModel);
-          setIsNewCustomerModalOpen(false);
-        }}
-      />
+      {/* Floating Bottom Bar for Mobile when items are in cart */}
+      {cart.length > 0 && mobileTab === "catalog" && (
+        <div className="lg:hidden fixed bottom-16 inset-x-3 z-30 animate-in slide-in-from-bottom-3 duration-200">
+          <div
+            onClick={() => setMobileTab("cart")}
+            className="p-3 rounded-2xl bg-slate-900 text-white shadow-xl flex items-center justify-between cursor-pointer border border-slate-700"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
+                {cart.length}
+              </div>
+              <div>
+                <div className="text-xs font-extrabold">{formatPKR(grandTotal)}</div>
+                <div className="text-[10px] text-slate-400">{totalItemCount} pieces in bill</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs font-bold bg-blue-600 px-3 py-1.5 rounded-xl">
+              <span>Bill Dekhein</span>
+              <Receipt className="h-4 w-4" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print Receipt Modal */}
       <ReceiptModal
@@ -649,102 +814,5 @@ export default function BillingPage() {
         onClose={() => setIsReceiptModalOpen(false)}
       />
     </div>
-  );
-}
-
-// Subcomponent: Quick Add Customer Modal
-function QuickAddCustomerModal({
-  isOpen,
-  onClose,
-  onCreated,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onCreated: (cust: Customer) => void;
-}) {
-  const { addCustomer } = useStore();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [bikeReg, setBikeReg] = useState("");
-  const [bikeModel, setBikeModel] = useState("Honda CD 70");
-  const [address, setAddress] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone) return;
-    const created = await addCustomer({
-      name,
-      phone,
-      bikeRegNumber: bikeReg,
-      bikeModel,
-      address,
-    });
-    onCreated(created);
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Add New Customer / نیا کسٹمر رجسٹر کریں"
-      description="Quickly save customer details with motorcycle registration"
-    >
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <Input
-          label="Customer Full Name *"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Asif Raza"
-        />
-        <Input
-          label="Phone Number *"
-          required
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="0300-XXXXXXX"
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Motorcycle Reg #"
-            value={bikeReg}
-            onChange={(e) => setBikeReg(e.target.value)}
-            placeholder="e.g. KHI-1234"
-          />
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
-              Bike Model
-            </label>
-            <select
-              value={bikeModel}
-              onChange={(e) => setBikeModel(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500"
-            >
-              <option value="Honda CD 70">Honda CD 70</option>
-              <option value="Honda CG 125">Honda CG 125</option>
-              <option value="Yamaha YBR 125">Yamaha YBR 125</option>
-              <option value="Suzuki GS 150">Suzuki GS 150</option>
-              <option value="Road Prince 70">Road Prince 70</option>
-              <option value="United 70">United 70</option>
-            </select>
-          </div>
-        </div>
-        <Input
-          label="Address (Optional)"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Area / Karachi locality"
-        />
-
-        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-          <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary">
-            Save Customer
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 }

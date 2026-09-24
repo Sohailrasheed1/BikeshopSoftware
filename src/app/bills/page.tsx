@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
+  User,
+  Bike,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -27,8 +29,8 @@ export default function BillHistoryPage() {
   const { bills, cancelBill } = useStore();
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Completed" | "Cancelled">("All");
   const [selectedBillForPrint, setSelectedBillForPrint] = useState<Bill | null>(null);
-  const [selectedBillForView, setSelectedBillForView] = useState<Bill | null>(null);
   const [billToCancel, setBillToCancel] = useState<Bill | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
 
@@ -37,77 +39,212 @@ export default function BillHistoryPage() {
     try {
       await cancelBill(billToCancel.id);
       setCancelSuccessMsg(
-        `Bill ${billToCancel.billNumber} cancelled successfully! Stock has been restored back to inventory automatically.`
+        `Bill ${billToCancel.billNumber} mansookh (cancel) ho gaya! Sara saman wapas stock mein shamil kar diya gaya.`
       );
       setBillToCancel(null);
       setTimeout(() => setCancelSuccessMsg(""), 5000);
     } catch (err: any) {
-      alert(err.message || "Failed to cancel bill.");
+      alert(err.message || "Bill cancel karne mein masla aaya.");
     }
   };
 
   const filteredBills = bills.filter((b) => {
     const s = search.toLowerCase();
-    return (
+    const matchesSearch =
       b.billNumber.toLowerCase().includes(s) ||
       b.customerName.toLowerCase().includes(s) ||
       (b.customerPhone && b.customerPhone.includes(s)) ||
       (b.bikeRegNumber && b.bikeRegNumber.toLowerCase().includes(s)) ||
-      b.createdAt.includes(s)
-    );
+      b.createdAt.includes(s);
+
+    const matchesStatus =
+      statusFilter === "All" || b.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <History className="h-7 w-7 text-blue-600" />
-            Bill History & Invoices / پرانے بلز کا ریکارڈ
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <History className="h-6 w-6 text-blue-600" />
+            Purane Bills Ka Record & Invoices
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Pehle se bane huway bills check karein, re-print karein ya galat bill cancel karke stock restore karein.
+          <p className="text-xs text-slate-500">
+            Pehle bane huway bills check karein, dobara print karein ya galat bill cancel karein.
           </p>
         </div>
       </div>
 
-      {/* Stock Restored Success Message Banner */}
+      {/* Success Notification */}
       {cancelSuccessMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-3 shadow-sm animate-in fade-in">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 shadow-xs animate-in fade-in">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
           <span>{cancelSuccessMsg}</span>
         </div>
       )}
 
-      {/* Search Input */}
-      <Card className="glass-card">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by Bill # (e.g. SK-1001), Customer name, Phone, or Bike reg number..."
-              className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
+      {/* Filter and Search Bar */}
+      <Card className="glass-card border-slate-200/90 shadow-xs">
+        <CardContent className="p-3.5 sm:p-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full sm:flex-1">
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Bill number (e.g. SK-1001), gahak ka naam, phone ya bike number search karein..."
+                className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("All")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  statusFilter === "All"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Sab Bills ({bills.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Completed")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  statusFilter === "Completed"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-emerald-800 hover:text-emerald-950"
+                }`}
+              >
+                Ada Shuda
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Cancelled")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  statusFilter === "Cancelled"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : "text-rose-800 hover:text-rose-950"
+                }`}
+              >
+                Mansookh (Cancelled)
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bills Table */}
-      <Card className="glass-card overflow-hidden">
+      {/* Responsive View: Mobile Cards & Desktop Table */}
+      {/* 1. Mobile Cards View */}
+      <div className="lg:hidden space-y-3">
+        {filteredBills.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl bg-white border border-slate-200 text-slate-400 text-xs">
+            Koi bill nahi mila.
+          </div>
+        ) : (
+          filteredBills.map((bill) => {
+            const isCancelled = bill.status === "Cancelled";
+
+            return (
+              <div
+                key={bill.id}
+                className={`p-4 rounded-2xl bg-white border shadow-xs space-y-3 ${
+                  isCancelled ? "border-rose-200 bg-rose-50/20 opacity-80" : "border-slate-200/90"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-sm text-blue-700">
+                        {bill.billNumber}
+                      </span>
+                      <Badge
+                        variant={isCancelled ? "danger" : "success"}
+                        className="text-[10px] py-0 font-bold"
+                      >
+                        {isCancelled ? "Mansookh" : "Ada Shuda"}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {formatDateTime(bill.createdAt)}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-base font-black text-slate-900">
+                      {formatPKR(bill.grandTotal)}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-semibold">
+                      {bill.paymentMethod}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-bold text-slate-900">{bill.customerName}</div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      {bill.customerPhone || "No phone"}
+                    </div>
+                  </div>
+
+                  {bill.bikeRegNumber && (
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {bill.bikeRegNumber}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="text-xs text-slate-600 truncate">
+                  <span className="font-semibold text-slate-700">Saman ({bill.items.length}):</span>{" "}
+                  {bill.items.map((i) => `${i.partName} (${i.quantity})`).join(", ")}
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold text-slate-700"
+                    onClick={() => setSelectedBillForPrint(bill)}
+                  >
+                    <Printer className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                    <span>Parchi Print</span>
+                  </Button>
+
+                  {!isCancelled && (
+                    <button
+                      type="button"
+                      onClick={() => setBillToCancel(bill)}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition"
+                    >
+                      Bill Cancel Karein
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* 2. Desktop Clean Airy Table */}
+      <Card className="glass-card hidden lg:block overflow-hidden border-slate-200/90 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200/90 bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                 <th className="py-3 px-4">Bill #</th>
-                <th className="py-3 px-3">Date & Time</th>
-                <th className="py-3 px-3">Customer Details</th>
+                <th className="py-3 px-3">Tareekh & Waqt</th>
+                <th className="py-3 px-3">Gahak & Phone</th>
                 <th className="py-3 px-3">Motorcycle</th>
-                <th className="py-3 px-3 text-center">Items Count</th>
-                <th className="py-3 px-3 text-right">Grand Total</th>
+                <th className="py-3 px-3 text-center">Tadad</th>
+                <th className="py-3 px-3 text-right">Kul Raqam</th>
                 <th className="py-3 px-3 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -116,7 +253,7 @@ export default function BillHistoryPage() {
               {filteredBills.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
-                    No bills match your search criteria.
+                    Koi bill nahi mila.
                   </td>
                 </tr>
               ) : (
@@ -130,18 +267,16 @@ export default function BillHistoryPage() {
                         isCancelled ? "bg-rose-50/30 opacity-70" : ""
                       }`}
                     >
-                      <td className="py-3.5 px-4 font-black text-blue-700 font-mono">
+                      <td className="py-3.5 px-4 font-mono font-black text-blue-700">
                         {bill.billNumber}
                       </td>
 
-                      <td className="py-3.5 px-3 text-slate-600 font-medium">
+                      <td className="py-3.5 px-3 text-slate-500 font-medium">
                         {formatDateTime(bill.createdAt)}
                       </td>
 
                       <td className="py-3.5 px-3">
-                        <div className="font-bold text-slate-900">
-                          {bill.customerName}
-                        </div>
+                        <div className="font-bold text-slate-900">{bill.customerName}</div>
                         {bill.customerPhone && (
                           <div className="text-[11px] font-mono text-slate-400">
                             {bill.customerPhone}
@@ -149,57 +284,54 @@ export default function BillHistoryPage() {
                         )}
                       </td>
 
-                      <td className="py-3.5 px-3 text-slate-700">
-                        <div>{bill.bikeModel || "-"}</div>
+                      <td className="py-3.5 px-3">
+                        <div className="text-slate-800 font-medium">{bill.bikeModel || "-"}</div>
                         {bill.bikeRegNumber && (
-                          <div className="text-[10px] font-mono font-bold text-slate-500">
+                          <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded">
                             {bill.bikeRegNumber}
-                          </div>
+                          </span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800">
-                        <Badge variant="outline">{bill.items.length} parts</Badge>
+                      <td className="py-3.5 px-3 text-center font-bold text-slate-700">
+                        {bill.items.reduce((acc, it) => acc + it.quantity, 0)} pcs
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-black text-slate-900 text-sm">
-                        {formatPKR(bill.grandTotal)}
-                        {bill.discount > 0 && (
-                          <div className="text-[10px] text-emerald-600 font-normal">
-                            Discount: {formatPKR(bill.discount)}
-                          </div>
-                        )}
+                      <td className="py-3.5 px-3 text-right font-black text-slate-900">
+                        <div>{formatPKR(bill.grandTotal)}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">
+                          {bill.paymentMethod}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-3 text-center">
-                        <Badge variant={isCancelled ? "danger" : "success"}>
-                          {bill.status}
+                        <Badge
+                          variant={isCancelled ? "danger" : "success"}
+                          className="font-bold text-[10px]"
+                        >
+                          {isCancelled ? "Mansookh" : "Ada Shuda"}
                         </Badge>
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setSelectedBillForView(bill)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition"
-                            title="View Full Bill Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-
-                          <button
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2.5 text-xs font-bold text-slate-700"
                             onClick={() => setSelectedBillForPrint(bill)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition"
-                            title="Print / Re-print Receipt"
+                            title="Receipt Dekhein ya Print Karein"
                           >
-                            <Printer className="h-4 w-4" />
-                          </button>
+                            <Printer className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                            <span>Parchi</span>
+                          </Button>
 
                           {!isCancelled && (
                             <button
+                              type="button"
                               onClick={() => setBillToCancel(bill)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                              title="Cancel Bill & Restore Stock"
+                              className="p-1 text-slate-400 hover:text-rose-600 transition"
+                              title="Bill Mansookh Karein (Stock wapas shamil hoga)"
                             >
                               <RotateCcw className="h-4 w-4" />
                             </button>
@@ -215,141 +347,40 @@ export default function BillHistoryPage() {
         </div>
       </Card>
 
-      {/* Bill Details Modal */}
-      <Modal
-        isOpen={!!selectedBillForView}
-        onClose={() => setSelectedBillForView(null)}
-        title={`Bill Details: ${selectedBillForView?.billNumber}`}
-        description={`Created on ${formatDateTime(selectedBillForView?.createdAt || "")}`}
-        maxWidth="2xl"
-      >
-        {selectedBillForView && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl text-xs">
-              <div>
-                <span className="text-slate-500">Customer: </span>
-                <span className="font-bold text-slate-900">
-                  {selectedBillForView.customerName}
-                </span>
-                {selectedBillForView.customerPhone && (
-                  <div className="text-slate-500">
-                    Phone: {selectedBillForView.customerPhone}
-                  </div>
-                )}
-              </div>
-              <div className="text-right">
-                <span className="text-slate-500">Motorcycle: </span>
-                <span className="font-bold text-slate-900">
-                  {selectedBillForView.bikeModel || "Not specified"}
-                </span>
-                {selectedBillForView.bikeRegNumber && (
-                  <div className="font-mono font-bold text-slate-600">
-                    Reg: {selectedBillForView.bikeRegNumber}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-100 text-[10px] uppercase font-bold text-slate-600 border-b">
-                    <th className="p-2.5">Item Name</th>
-                    <th className="p-2.5 text-center">Qty</th>
-                    <th className="p-2.5 text-right">Price</th>
-                    <th className="p-2.5 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {selectedBillForView.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="p-2.5 font-semibold text-slate-800">
-                        {item.partName}
-                      </td>
-                      <td className="p-2.5 text-center font-bold">{item.quantity}</td>
-                      <td className="p-2.5 text-right text-slate-600">
-                        {formatPKR(item.unitPrice)}
-                      </td>
-                      <td className="p-2.5 text-right font-black text-slate-900">
-                        {formatPKR(item.totalPrice)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-between items-baseline pt-2 text-xs border-t">
-              <span className="text-slate-600">Payment Method:</span>
-              <span className="font-bold text-slate-800">
-                {selectedBillForView.paymentMethod}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-baseline text-base font-black text-slate-900">
-              <span>Grand Total:</span>
-              <span className="text-blue-700 text-lg">
-                {formatPKR(selectedBillForView.grandTotal)}
-              </span>
-            </div>
-
-            <div className="flex justify-end gap-2.5 pt-3 border-t">
-              <Button
-                variant="secondary"
-                onClick={() => setSelectedBillForView(null)}
-              >
-                Close
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setSelectedBillForPrint(selectedBillForView);
-                  setSelectedBillForView(null);
-                }}
-              >
-                <Printer className="h-4 w-4 mr-1.5" />
-                Print Receipt
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Cancel Bill Confirmation Modal (Restores Stock) */}
+      {/* Cancel Confirmation Modal */}
       <Modal
         isOpen={!!billToCancel}
         onClose={() => setBillToCancel(null)}
-        title="Cancel Bill & Restore Stock / بل کینسل کریں"
-        description="Are you sure you want to cancel this bill? The inventory stock will automatically be returned."
+        title="Kya Aap Yeh Bill Mansookh (Cancel) Karna Chahte Hain?"
+        description={`Bill # ${billToCancel?.billNumber || ""}`}
         maxWidth="md"
       >
-        {billToCancel && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-rose-700">
-                <AlertTriangle className="h-4 w-4" />
-                Stock Restoration Notice
-              </div>
-              <p>
-                Yeh bill cancel karne se is ke tamaam items ({billToCancel.items.length}{" "}
-                parts) wapis shop stock mein add kar diye jayenge aur customer ka lifetime spending record bhi adjust ho jayega.
-              </p>
-              <div className="pt-1 font-mono font-bold">
-                Bill #: {billToCancel.billNumber} • Amount: {formatPKR(billToCancel.grandTotal)}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setBillToCancel(null)}>
-                No, Keep Bill
-              </Button>
-              <Button variant="danger" onClick={handleConfirmCancel}>
-                Yes, Cancel & Restore Stock
-              </Button>
-            </div>
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+            <p className="font-bold">⚠️ Zaroori Maloomat:</p>
+            <p>
+              Is bill ke tamam spare parts ({billToCancel?.items.length} types) dukan ke stock mein dobara wapas shamil ho jayenge.
+            </p>
           </div>
-        )}
+
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setBillToCancel(null)}
+            >
+              Nahi, Wapas Jayein
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              className="font-bold bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={handleConfirmCancel}
+            >
+              Haan, Bill Cancel Karein
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Print Receipt Modal */}

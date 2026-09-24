@@ -16,6 +16,9 @@ import {
   XCircle,
   PlusCircle,
   MinusCircle,
+  MapPin,
+  Bike,
+  Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,17 +29,17 @@ import { useStore } from "@/lib/storage/context";
 import { Part, PartCategory } from "@/types";
 import { formatPKR, formatDate } from "@/lib/utils";
 
-const CATEGORIES: PartCategory[] = [
-  "Engine & Transmission",
-  "Brakes & Clutch",
-  "Electrical & Battery",
-  "Body, Lights & Mirrors",
-  "Suspension & Fork",
-  "Tyres & Tubes",
-  "Cables & Levers",
-  "Oils & Lubricants",
-  "Chains & Sprockets",
-  "Accessories & General",
+const CATEGORIES: { label: string; value: PartCategory }[] = [
+  { label: "Engine & Transmission", value: "Engine & Transmission" },
+  { label: "Brakes & Clutch", value: "Brakes & Clutch" },
+  { label: "Electrical & Battery", value: "Electrical & Battery" },
+  { label: "Body, Lights & Mirrors", value: "Body, Lights & Mirrors" },
+  { label: "Suspension & Fork", value: "Suspension & Fork" },
+  { label: "Tyres & Tubes", value: "Tyres & Tubes" },
+  { label: "Cables & Levers", value: "Cables & Levers" },
+  { label: "Oils & Lubricants", value: "Oils & Lubricants" },
+  { label: "Chains & Sprockets", value: "Chains & Sprockets" },
+  { label: "Accessories & General", value: "Accessories & General" },
 ];
 
 export default function InventoryPage() {
@@ -140,19 +143,21 @@ export default function InventoryPage() {
     setIsAddModalOpen(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this spare part from catalog?")) {
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Kya aap waqai "${name}" ko stock list se delete karna chahte hain?`)) {
       await deletePart(id);
     }
   };
 
   // Filter Logic
   const filteredParts = parts.filter((part) => {
+    const s = search.toLowerCase();
     const matchesSearch =
-      part.name.toLowerCase().includes(search.toLowerCase()) ||
-      part.category.toLowerCase().includes(search.toLowerCase()) ||
-      (part.sku && part.sku.toLowerCase().includes(search.toLowerCase())) ||
-      part.supplierName.toLowerCase().includes(search.toLowerCase());
+      part.name.toLowerCase().includes(s) ||
+      part.category.toLowerCase().includes(s) ||
+      (part.sku && part.sku.toLowerCase().includes(s)) ||
+      part.supplierName.toLowerCase().includes(s) ||
+      part.compatibleModels.some((m) => m.toLowerCase().includes(s));
 
     const matchesCategory =
       selectedCategory === "All" || part.category === selectedCategory;
@@ -167,29 +172,101 @@ export default function InventoryPage() {
     return matchesSearch && matchesCategory && matchesStock;
   });
 
+  const lowStockCount = parts.filter(
+    (p) => p.currentStock > 0 && p.currentStock <= p.minStockLimit
+  ).length;
+  const outOfStockCount = parts.filter((p) => p.currentStock === 0).length;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Boxes className="h-7 w-7 text-blue-600" />
-            Inventory & Stock Management / اسٹاک کا نظام
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Boxes className="h-6 w-6 text-blue-600" />
+            Saman & Stock Ka Khata (Inventory)
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Parts stock track karein, purchase/selling price maintain karein aur low stock alerts check karein.
+          <p className="text-xs text-slate-500">
+            Maujooda parts ka stock check karein, naya saman add karein aur keemat set karein.
           </p>
         </div>
 
-        <Button onClick={handleOpenAdd} size="lg" className="font-bold shadow-sm">
-          <Plus className="h-5 w-5 mr-1.5" />
-          Add New Part (نیا پرزہ شامل کریں)
+        <Button
+          onClick={handleOpenAdd}
+          size="lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 text-xs sm:text-sm h-11"
+        >
+          <Plus className="h-4 w-4 mr-1.5" />
+          + Naya Saman Shamil Karein
         </Button>
       </div>
 
+      {/* Stock Summary Metrics Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div
+          onClick={() => setStockStatusFilter("All")}
+          className={`p-3.5 rounded-xl border transition cursor-pointer ${
+            stockStatusFilter === "All"
+              ? "bg-blue-50 border-blue-300 shadow-xs"
+              : "bg-white border-slate-200/80 hover:border-slate-300"
+          }`}
+        >
+          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+            Kul Saman (Total)
+          </div>
+          <div className="text-xl font-black text-slate-900 mt-1">
+            {parts.length} Types
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStockStatusFilter("All")}
+          className="p-3.5 rounded-xl bg-white border border-slate-200/80 cursor-pointer"
+        >
+          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+            Stock Theek Hai
+          </div>
+          <div className="text-xl font-black text-emerald-600 mt-1">
+            {parts.length - lowStockCount - outOfStockCount} Items
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStockStatusFilter("Low")}
+          className={`p-3.5 rounded-xl border transition cursor-pointer ${
+            stockStatusFilter === "Low"
+              ? "bg-amber-100 border-amber-300 shadow-xs"
+              : "bg-amber-50/60 border-amber-200 hover:border-amber-300"
+          }`}
+        >
+          <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
+            Kam Stock (Alerts)
+          </div>
+          <div className="text-xl font-black text-amber-800 mt-1">
+            {lowStockCount} Items
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStockStatusFilter("Out")}
+          className={`p-3.5 rounded-xl border transition cursor-pointer ${
+            stockStatusFilter === "Out"
+              ? "bg-rose-100 border-rose-300 shadow-xs"
+              : "bg-rose-50/60 border-rose-200 hover:border-rose-300"
+          }`}
+        >
+          <div className="text-[11px] font-bold text-rose-800 uppercase tracking-wide">
+            Khatam Shuda
+          </div>
+          <div className="text-xl font-black text-rose-800 mt-1">
+            {outOfStockCount} Items
+          </div>
+        </div>
+      </div>
+
       {/* Filter and Search Bar */}
-      <Card className="glass-card">
-        <CardContent className="p-4 space-y-3">
+      <Card className="glass-card border-slate-200/90 shadow-xs">
+        <CardContent className="p-3.5 sm:p-4">
           <div className="flex flex-col md:flex-row gap-3">
             {/* Search Input */}
             <div className="relative flex-1">
@@ -198,8 +275,8 @@ export default function InventoryPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search part name, category, SKU or supplier..."
-                className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="Saman ka naam, SKU, bike model ya supplier search karein..."
+                className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200/90 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
 
@@ -208,78 +285,205 @@ export default function InventoryPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 focus:border-blue-500 focus:outline-none"
               >
-                <option value="All">All Categories (تمام کیٹگریز)</option>
+                <option value="All">Sab Categories (تمام)</option>
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Stock Filter Pills */}
+            {/* Status Tabs */}
             <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 self-start">
               <button
                 type="button"
                 onClick={() => setStockStatusFilter("All")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                   stockStatusFilter === "All"
-                    ? "bg-white text-slate-900 shadow-sm"
+                    ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                All Stock
+                Sab ({parts.length})
               </button>
               <button
                 type="button"
                 onClick={() => setStockStatusFilter("Low")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                   stockStatusFilter === "Low"
-                    ? "bg-amber-500 text-white shadow-sm"
+                    ? "bg-amber-500 text-white shadow-xs"
                     : "text-amber-800 hover:text-amber-950"
                 }`}
               >
-                Low Stock
+                Kam Stock ({lowStockCount})
               </button>
               <button
                 type="button"
                 onClick={() => setStockStatusFilter("Out")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                   stockStatusFilter === "Out"
-                    ? "bg-rose-600 text-white shadow-sm"
+                    ? "bg-rose-600 text-white shadow-xs"
                     : "text-rose-800 hover:text-rose-950"
                 }`}
               >
-                Out of Stock
+                Khatam ({outOfStockCount})
               </button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Parts Table */}
-      <Card className="glass-card overflow-hidden">
+      {/* Responsive View: Mobile Cards & Desktop Clean Table */}
+      {/* 1. Mobile Cards View (Visible on phones & small tablets) */}
+      <div className="lg:hidden space-y-3">
+        {filteredParts.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl bg-white border border-slate-200 text-slate-400 text-xs">
+            Koi saman nahi mila.
+          </div>
+        ) : (
+          filteredParts.map((part) => {
+            const isZero = part.currentStock === 0;
+            const isLow =
+              part.currentStock > 0 && part.currentStock <= part.minStockLimit;
+            const profit = part.sellingPrice - part.purchasePrice;
+
+            return (
+              <div
+                key={part.id}
+                className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900 leading-snug">
+                      {part.name}
+                    </h3>
+                    <div className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                      {part.compatibleModels.join(", ")}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {part.category} {part.location ? `• Shelf: ${part.location}` : ""}
+                    </div>
+                  </div>
+
+                  <Badge
+                    variant={isZero ? "danger" : isLow ? "warning" : "success"}
+                    className="text-[10px] py-0 font-bold"
+                  >
+                    {isZero ? "Khatam" : isLow ? "Kam Stock" : "In Stock"}
+                  </Badge>
+                </div>
+
+                {/* Prices & Stock Controls */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                      Bikri Qeemat (Sale)
+                    </div>
+                    <div className="text-base font-black text-slate-900">
+                      {formatPKR(part.sellingPrice)}
+                    </div>
+                    <div className="text-[10px] text-emerald-600 font-medium">
+                      +{formatPKR(profit)} munafa
+                    </div>
+                  </div>
+
+                  {/* Quantity +/- Buttons */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => updateStock(part.id, -1)}
+                      className="h-8 w-8 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold flex items-center justify-center hover:bg-slate-100 active:scale-95"
+                      title="1 kam karein"
+                    >
+                      <MinusCircle className="h-4 w-4" />
+                    </button>
+                    <div className="text-center min-w-[32px]">
+                      <div className="font-black text-base text-slate-900 leading-none">
+                        {part.currentStock}
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">Hadd: {part.minStockLimit}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateStock(part.id, 1)}
+                      className="h-8 w-8 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center hover:bg-blue-700 active:scale-95 shadow-xs"
+                      title="1 barhayein"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateStock(part.id, 5)}
+                      className="h-8 px-2 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition"
+                      title="5 barhayein"
+                    >
+                      +5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateStock(part.id, 10)}
+                      className="h-8 px-2 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition"
+                      title="10 barhayein"
+                    >
+                      +10
+                    </button>
+                  </div>
+                </div>
+
+                {/* Footer with Supplier & Actions */}
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <div className="text-[11px] text-slate-500 truncate">
+                    Supplier: <span className="font-semibold text-slate-700">{part.supplierName}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(part)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(part.id, part.name)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* 2. Desktop Clean Airy Table */}
+      <Card className="glass-card hidden lg:block overflow-hidden border-slate-200/90 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200/90 bg-slate-100/70 text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                <th className="py-3 px-4">Part Name & Category</th>
-                <th className="py-3 px-3">SKU / Shelf</th>
-                <th className="py-3 px-3 text-right">Cost Price</th>
-                <th className="py-3 px-3 text-right">Sale Price</th>
-                <th className="py-3 px-3 text-center">Current Stock</th>
+                <th className="py-3 px-4">Saman Ka Naam & Bike</th>
+                <th className="py-3 px-3">Category / Shelf</th>
+                <th className="py-3 px-3 text-right">Kharid (Cost)</th>
+                <th className="py-3 px-3 text-right">Bikri (Sale)</th>
+                <th className="py-3 px-3 text-center">Maujooda Stock</th>
                 <th className="py-3 px-3 text-center">Status</th>
                 <th className="py-3 px-3">Supplier</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 text-right">Tabdeeli (Action)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredParts.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
-                    No parts match your filter criteria.
+                    Koi part nahi mila.
                   </td>
                 </tr>
               ) : (
@@ -288,7 +492,6 @@ export default function InventoryPage() {
                   const isLow =
                     part.currentStock > 0 && part.currentStock <= part.minStockLimit;
                   const margin = part.sellingPrice - part.purchasePrice;
-                  const marginPercent = Math.round((margin / part.purchasePrice) * 100);
 
                   return (
                     <tr
@@ -296,27 +499,29 @@ export default function InventoryPage() {
                       className="hover:bg-slate-50/80 transition group"
                     >
                       <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        <div className="font-bold text-slate-900 leading-snug">
+                        <div className="font-extrabold text-slate-900 leading-snug">
                           {part.name}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-normal mt-0.5">
-                          {part.category} • Fits: {part.compatibleModels.join(", ")}
+                        <div className="text-[11px] text-blue-700 font-semibold mt-0.5">
+                          {part.compatibleModels.join(", ")}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-slate-500">
-                        <div>{part.sku || "-"}</div>
-                        <div className="text-[10px] text-slate-400">{part.location}</div>
+                      <td className="py-3.5 px-3 text-slate-500">
+                        <div className="font-medium text-slate-700">{part.category}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {part.location || "Shelf -"} {part.sku ? `• #${part.sku}` : ""}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-3 text-right text-slate-600 font-medium">
                         {formatPKR(part.purchasePrice)}
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-bold text-slate-900">
+                      <td className="py-3.5 px-3 text-right font-black text-slate-900">
                         <div>{formatPKR(part.sellingPrice)}</div>
-                        <div className="text-[10px] text-emerald-600 font-medium">
-                          +{marginPercent}% profit
+                        <div className="text-[10px] text-emerald-600 font-semibold">
+                          +{formatPKR(margin)} munafa
                         </div>
                       </td>
 
@@ -326,17 +531,17 @@ export default function InventoryPage() {
                             type="button"
                             onClick={() => updateStock(part.id, -1)}
                             className="text-slate-400 hover:text-slate-700 p-0.5"
-                            title="Decrease stock by 1"
+                            title="Stock 1 kam karein"
                           >
                             <MinusCircle className="h-4 w-4" />
                           </button>
                           <span
-                            className={`font-black text-sm px-2 py-0.5 rounded-lg ${
+                            className={`font-black text-sm px-2.5 py-0.5 rounded-lg ${
                               isZero
                                 ? "bg-rose-100 text-rose-800"
                                 : isLow
                                 ? "bg-amber-100 text-amber-800"
-                                : "bg-slate-100 text-slate-800"
+                                : "bg-slate-100 text-slate-900"
                             }`}
                           >
                             {part.currentStock}
@@ -345,21 +550,22 @@ export default function InventoryPage() {
                             type="button"
                             onClick={() => updateStock(part.id, 1)}
                             className="text-slate-400 hover:text-slate-700 p-0.5"
-                            title="Increase stock by 1"
+                            title="Stock 1 barhayein"
                           >
                             <PlusCircle className="h-4 w-4" />
                           </button>
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          Min limit: {part.minStockLimit}
+                          Hadd: {part.minStockLimit}
                         </div>
                       </td>
 
                       <td className="py-3.5 px-3 text-center">
                         <Badge
                           variant={isZero ? "danger" : isLow ? "warning" : "success"}
+                          className="font-bold text-[10px]"
                         >
-                          {isZero ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
+                          {isZero ? "Khatam" : isLow ? "Kam Stock" : "In Stock"}
                         </Badge>
                       </td>
 
@@ -382,7 +588,7 @@ export default function InventoryPage() {
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(part.id)}
+                            onClick={() => handleDelete(part.id, part.name)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
                             title="Delete Part"
                           >
@@ -403,22 +609,22 @@ export default function InventoryPage() {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title={editingPart ? "Edit Spare Part / پرزہ تبدیل کریں" : "Add New Part / نیا پرزہ شامل کریں"}
-        description="Enter full part specifications, prices, stock and supplier details"
-        maxWidth="2xl"
+        title={editingPart ? "Saman Ki Details Tabdeel Karein" : "Naya Saman Shamil Karein"}
+        description="Saman ka naam, model, qeemat aur maujooda tadad darj karein"
+        maxWidth="xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Part Name *"
+            label="Saman Ka Naam (Part Name) *"
             required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="e.g. Atlas Honda Piston 70cc Standard"
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 Category *
               </label>
               <select
@@ -426,18 +632,18 @@ export default function InventoryPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value as PartCategory })
                 }
-                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500"
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:border-blue-500"
               >
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
                   </option>
                 ))}
               </select>
             </div>
 
             <Input
-              label="SKU / Item Code"
+              label="SKU / Item Code (Optional)"
               value={formData.sku}
               onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
               placeholder="e.g. ENG-PST-01"
@@ -445,81 +651,79 @@ export default function InventoryPage() {
           </div>
 
           <Input
-            label="Compatible Bikes (Comma separated)"
+            label="Compatible Bikes (Kis motorcycle mein lagega)"
             value={formData.compatibleModels}
             onChange={(e) => setFormData({ ...formData, compatibleModels: e.target.value })}
-            placeholder="e.g. Honda CD 70, United 70, Road Prince 70"
+            placeholder="e.g. Honda CD 70, United 70"
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3.5">
             <Input
-              label="Cost Price (Rs.) *"
+              label="Kharid Qeemat (Cost PKR) *"
               type="number"
               required
               min="0"
-              value={formData.purchasePrice || ""}
+              value={formData.purchasePrice === 0 ? "" : formData.purchasePrice}
               onChange={(e) =>
-                setFormData({ ...formData, purchasePrice: Number(e.target.value) })
+                setFormData({ ...formData, purchasePrice: Number(e.target.value) || 0 })
               }
-              placeholder="1150"
+              placeholder="0"
             />
+
             <Input
-              label="Sale Price (Rs.) *"
+              label="Bikri Qeemat (Sale Price PKR) *"
               type="number"
               required
               min="0"
-              value={formData.sellingPrice || ""}
+              value={formData.sellingPrice === 0 ? "" : formData.sellingPrice}
               onChange={(e) =>
-                setFormData({ ...formData, sellingPrice: Number(e.target.value) })
+                setFormData({ ...formData, sellingPrice: Number(e.target.value) || 0 })
               }
-              placeholder="1550"
+              placeholder="0"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3.5">
             <Input
-              label="Current Stock *"
+              label="Maujooda Stock (Tadad) *"
               type="number"
               required
               min="0"
               value={formData.currentStock}
               onChange={(e) =>
-                setFormData({ ...formData, currentStock: Number(e.target.value) })
+                setFormData({ ...formData, currentStock: Number(e.target.value) || 0 })
               }
-              placeholder="10"
             />
+
             <Input
-              label="Low Alert Limit *"
+              label="Kam Stock Alert Hadd *"
               type="number"
               required
               min="1"
               value={formData.minStockLimit}
               onChange={(e) =>
-                setFormData({ ...formData, minStockLimit: Number(e.target.value) })
+                setFormData({ ...formData, minStockLimit: Number(e.target.value) || 0 })
               }
-              placeholder="5"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Input
-              label="Supplier Name"
+              label="Supplier Ka Naam"
               value={formData.supplierName}
               onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-              placeholder="e.g. Karachi Autos (Akbar Road)"
+              placeholder="e.g. Akbar Autos Saddar"
             />
+
             <Input
-              label="Supplier Phone"
-              value={formData.supplierPhone}
-              onChange={(e) => setFormData({ ...formData, supplierPhone: e.target.value })}
-              placeholder="0300-XXXXXXX"
-            />
-            <Input
-              label="Rack / Shelf Location"
+              label="Dukan Mein Kahan Rakha Hai (Shelf / Rack)"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="e.g. Rack A-02"
+              placeholder="e.g. Rack A-1, Dabba #3"
             />
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="secondary"
@@ -527,8 +731,8 @@ export default function InventoryPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary">
-              {editingPart ? "Save Changes" : "Create Spare Part"}
+            <Button type="submit" variant="primary" className="font-bold">
+              {editingPart ? "Save Karein" : "Stock Mein Add Karein"}
             </Button>
           </div>
         </form>

@@ -72,14 +72,14 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
         {/* Reset Sample Data Button */}
         {resetConfirm ? (
           <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 p-1 rounded-xl animate-in fade-in">
-            <span className="text-xs text-amber-800 font-semibold px-2">Reset data?</span>
+            <span className="text-xs text-amber-800 font-semibold px-2">Data reset karein?</span>
             <Button
               size="sm"
               variant="danger"
-              className="h-7 px-2 text-xs"
+              className="h-7 px-2.5 text-xs font-bold"
               onClick={handleReset}
             >
-              Yes, Reset
+              Haan, Reset
             </Button>
             <Button
               size="sm"
@@ -87,7 +87,7 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
               className="h-7 px-2 text-xs"
               onClick={() => setResetConfirm(false)}
             >
-              Cancel
+              Nahi
             </Button>
           </div>
         ) : (
@@ -96,17 +96,17 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
             variant="outline"
             className="text-xs font-medium text-slate-600 hidden md:flex items-center"
             onClick={() => setResetConfirm(true)}
-            title="Reset data to original motorcycle parts sample data"
+            title="Reset sample data"
           >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
-            Reset Demo Data
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+            Reset Data
           </Button>
         )}
 
         {resetSuccess && (
           <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold animate-in fade-in">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Data Reset Done!
+            Data Reset Ho Gaya!
           </div>
         )}
 
@@ -114,7 +114,7 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
         <Link
           href="/inventory?filter=low"
           className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition"
-          title="Stock Alerts"
+          title="Stock Alerts (Kam Stock)"
         >
           <Bell className="h-5 w-5" />
           {(stats.lowStockCount > 0 || stats.outOfStockCount > 0) && (
@@ -124,10 +124,9 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
 
         {/* Quick New Bill Button */}
         <Link href="/billing">
-          <Button size="sm" variant="primary" className="shadow-sm font-semibold">
+          <Button size="sm" variant="primary" className="shadow-sm font-bold bg-blue-600 hover:bg-blue-700">
             <PlusCircle className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">New Bill</span>
-            <span className="sm:hidden">Bill</span>
+            <span>Naya Bill</span>
           </Button>
         </Link>
       </div>
