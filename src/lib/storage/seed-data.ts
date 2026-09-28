@@ -1,4 +1,4 @@
-import { Part, Customer, Bill, SupplierCredit } from "@/types";
+import { Part, Customer, Bill, SupplierCredit, Mechanic, MechanicLedgerEntry, VehicleJobCard } from "@/types";
 
 export const SEED_PARTS: Part[] = [
   {
@@ -385,3 +385,277 @@ export const SEED_SUPPLIER_CREDITS: SupplierCredit[] = [
     updatedAt: "2026-09-20T16:00:00Z",
   }
 ];
+
+export const SEED_MECHANICS: Mechanic[] = [
+  {
+    id: "mech-1",
+    name: "Ustad Rashid",
+    phone: "0300-8811223",
+    specialty: "Engine Overhaul & Tuning Master",
+    defaultShopCutPercentage: 30, // 30% to shop owner, 70% to mechanic
+    createdAt: "2026-08-01T09:00:00Z",
+    updatedAt: "2026-08-01T09:00:00Z",
+  },
+  {
+    id: "mech-2",
+    name: "Tariq Mehmood",
+    phone: "0312-3344556",
+    specialty: "Wiring, Electrical & Meter Specialist",
+    defaultShopCutPercentage: 30,
+    createdAt: "2026-08-05T09:00:00Z",
+    updatedAt: "2026-08-05T09:00:00Z",
+  },
+  {
+    id: "mech-3",
+    name: "Babar Ali",
+    phone: "0345-9988776",
+    specialty: "General Service, Oil & Brake Specialist",
+    defaultShopCutPercentage: 25, // 25% shop, 75% mechanic
+    createdAt: "2026-08-10T09:00:00Z",
+    updatedAt: "2026-08-10T09:00:00Z",
+  },
+  {
+    id: "mech-4",
+    name: "Irfan Ustad",
+    phone: "0333-7766554",
+    specialty: "Suspension, Front Fork & Wheel Alignment",
+    defaultShopCutPercentage: 30,
+    createdAt: "2026-08-15T09:00:00Z",
+    updatedAt: "2026-08-15T09:00:00Z",
+  }
+];
+
+export const SEED_MECHANIC_LEDGER: MechanicLedgerEntry[] = [
+  {
+    id: "mled-1",
+    mechanicId: "mech-1",
+    mechanicName: "Ustad Rashid",
+    type: "earning",
+    date: "2026-09-23T14:30:00Z",
+    billNumber: "SK-1001",
+    vehicleDetails: "Honda CD 70 (KHI-8291)",
+    customerName: "Muhammad Imran",
+    laborDescription: "Complete Engine Tuning & Valve Clearence",
+    totalLaborAmount: 1200,
+    shopPercentage: 30,
+    shopAmount: 360,
+    mechanicAmount: 840,
+    notes: "Tuning work completed smoothly",
+  },
+  {
+    id: "mled-2",
+    mechanicId: "mech-2",
+    mechanicName: "Tariq Mehmood",
+    type: "earning",
+    date: "2026-09-23T18:00:00Z",
+    billNumber: "SK-1002",
+    vehicleDetails: "Yamaha YBR 125 (KHI-4421)",
+    customerName: "Kamran Akram",
+    laborDescription: "Full Wiring Checkup & LED Light Installation",
+    totalLaborAmount: 800,
+    shopPercentage: 30,
+    shopAmount: 240,
+    mechanicAmount: 560,
+    notes: "Wiring fitting job",
+  },
+  {
+    id: "mled-3",
+    mechanicId: "mech-1",
+    mechanicName: "Ustad Rashid",
+    type: "payout",
+    date: "2026-09-24T12:00:00Z",
+    totalLaborAmount: 0,
+    shopPercentage: 0,
+    shopAmount: 0,
+    mechanicAmount: 500,
+    notes: "Daily cash advance / payout paid to Ustad Rashid",
+  }
+];
+
+export const SEED_JOB_CARDS: VehicleJobCard[] = [
+  {
+    id: "job-1",
+    jobCardNumber: "JC-101",
+    bayNumber: 1,
+    customerName: "Farhan Siddiqui",
+    customerPhone: "0302-1122334",
+    bikeRegNumber: "KHI-9921",
+    bikeModel: "Honda CG 125",
+    complaintDescription: "Engine sound noisy, clutch slipping, oil change required",
+    assignedMechanicId: "mech-1",
+    assignedMechanicName: "Ustad Rashid",
+    status: "In Progress",
+    items: [
+      {
+        partId: "part-2",
+        partName: "Crown Clutch Plate Set CG 125",
+        category: "Engine & Transmission",
+        quantity: 1,
+        unitPrice: 1850,
+        purchasePrice: 1400,
+        totalPrice: 1850,
+      },
+      {
+        partId: "part-7",
+        partName: "Caltex Havoline 4T 20W-50 Engine Oil (0.7L)",
+        category: "Oils & Lubricants",
+        quantity: 1,
+        unitPrice: 1100,
+        purchasePrice: 920,
+        totalPrice: 1100,
+      }
+    ],
+    labourItems: [
+      {
+        id: "lbr-1",
+        description: "Clutch Plate Fitting & Setting",
+        amount: 800,
+        mechanicId: "mech-1",
+        mechanicName: "Ustad Rashid",
+        shopCutPercentage: 30,
+        shopShare: 240,
+        mechanicShare: 560,
+      },
+      {
+        id: "lbr-2",
+        description: "Engine Oil Change & Filter Wash",
+        amount: 200,
+        mechanicId: "mech-1",
+        mechanicName: "Ustad Rashid",
+        shopCutPercentage: 30,
+        shopShare: 60,
+        mechanicShare: 140,
+      }
+    ],
+    estimatedSubtotal: 3950,
+    createdAt: "2026-09-28T09:30:00Z",
+    updatedAt: "2026-09-28T10:15:00Z",
+  },
+  {
+    id: "job-2",
+    jobCardNumber: "JC-102",
+    bayNumber: 2,
+    customerName: "Waqas Ahmed",
+    customerPhone: "0322-8765432",
+    bikeRegNumber: "KHI-3450",
+    bikeModel: "Honda CD 70",
+    complaintDescription: "Front and rear brake loose, missing problem in speed",
+    assignedMechanicId: "mech-3",
+    assignedMechanicName: "Babar Ali",
+    status: "In Progress",
+    items: [
+      {
+        partId: "part-3",
+        partName: "Brake Shoe Set Front/Rear CD 70 (Asbestos Free)",
+        category: "Brakes & Clutch",
+        quantity: 2,
+        unitPrice: 500,
+        purchasePrice: 320,
+        totalPrice: 1000,
+      },
+      {
+        partId: "part-6",
+        partName: "NGK Spark Plug C7HSA (Genuine)",
+        category: "Electrical & Battery",
+        quantity: 1,
+        unitPrice: 420,
+        purchasePrice: 260,
+        totalPrice: 420,
+      }
+    ],
+    labourItems: [
+      {
+        id: "lbr-3",
+        description: "Front & Rear Brake Shoes Replacement",
+        amount: 400,
+        mechanicId: "mech-3",
+        mechanicName: "Babar Ali",
+        shopCutPercentage: 25,
+        shopShare: 100,
+        mechanicShare: 300,
+      }
+    ],
+    estimatedSubtotal: 1820,
+    createdAt: "2026-09-28T10:00:00Z",
+    updatedAt: "2026-09-28T10:40:00Z",
+  },
+  {
+    id: "job-3",
+    jobCardNumber: "JC-103",
+    bayNumber: 3,
+    customerName: "Arsalan Raza",
+    customerPhone: "0314-5544332",
+    bikeRegNumber: "KHI-7128",
+    bikeModel: "Yamaha YBR 125",
+    complaintDescription: "Headlight not working, battery weak, indicator wiring short",
+    assignedMechanicId: "mech-2",
+    assignedMechanicName: "Tariq Mehmood",
+    status: "Waiting for Parts",
+    items: [
+      {
+        partId: "part-8",
+        partName: "LED Headlight Bulb 6-Sides White",
+        category: "Electrical & Battery",
+        quantity: 1,
+        unitPrice: 850,
+        purchasePrice: 550,
+        totalPrice: 850,
+      }
+    ],
+    labourItems: [
+      {
+        id: "lbr-4",
+        description: "Full Wiring Fault Tracing & Light Fitting",
+        amount: 700,
+        mechanicId: "mech-2",
+        mechanicName: "Tariq Mehmood",
+        shopCutPercentage: 30,
+        shopShare: 210,
+        mechanicShare: 490,
+      }
+    ],
+    estimatedSubtotal: 1550,
+    createdAt: "2026-09-28T11:15:00Z",
+    updatedAt: "2026-09-28T11:30:00Z",
+  },
+  {
+    id: "job-4",
+    jobCardNumber: "JC-104",
+    bayNumber: 4,
+    customerName: "Zubair Khan",
+    customerPhone: "0331-9087654",
+    bikeRegNumber: "KHI-5511",
+    bikeModel: "Honda CD 70",
+    complaintDescription: "Chain sprocket making noise, chain loose",
+    assignedMechanicId: "mech-4",
+    assignedMechanicName: "Irfan Ustad",
+    status: "Ready for Bill",
+    items: [
+      {
+        partId: "part-5",
+        partName: "Chain Sprocket Kit 4-Hole Heavy Duty CD 70",
+        category: "Chains & Sprockets",
+        quantity: 1,
+        unitPrice: 2350,
+        purchasePrice: 1750,
+        totalPrice: 2350,
+      }
+    ],
+    labourItems: [
+      {
+        id: "lbr-5",
+        description: "Chain Sprocket Replacement & Alignment",
+        amount: 500,
+        mechanicId: "mech-4",
+        mechanicName: "Irfan Ustad",
+        shopCutPercentage: 30,
+        shopShare: 150,
+        mechanicShare: 350,
+      }
+    ],
+    estimatedSubtotal: 2850,
+    createdAt: "2026-09-28T09:00:00Z",
+    updatedAt: "2026-09-28T11:45:00Z",
+  }
+];
+

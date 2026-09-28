@@ -56,6 +56,17 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface BillLabourItem {
+  id: string;
+  description: string;
+  amount: number;
+  mechanicId?: string;
+  mechanicName: string;
+  shopCutPercentage: number; // e.g. 30 (30% shop owner, 70% mechanic)
+  shopShare: number;         // e.g. 300
+  mechanicShare: number;     // e.g. 700
+}
+
 export interface BillItem {
   partId: string;
   partName: string;
@@ -76,6 +87,9 @@ export interface Bill {
   bikeModel?: string;
   customerAddress?: string;
   items: BillItem[];
+  labourItems?: BillLabourItem[];
+  labourTotal?: number;
+  partsTotal?: number;
   subtotal: number;
   discount: number;
   tax: number;
@@ -85,6 +99,58 @@ export interface Bill {
   notes?: string;
   status: "Completed" | "Cancelled";
   createdAt: string; // ISO date string
+}
+
+export interface Mechanic {
+  id: string;
+  name: string;
+  phone: string;
+  specialty?: string;
+  defaultShopCutPercentage: number; // e.g. 30% for shop owner
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MechanicLedgerEntry {
+  id: string;
+  mechanicId: string;
+  mechanicName: string;
+  type: "earning" | "payout";
+  date: string;
+  billId?: string;
+  billNumber?: string;
+  jobCardId?: string;
+  jobCardNumber?: string;
+  vehicleDetails?: string;
+  customerName?: string;
+  laborDescription?: string;
+  totalLaborAmount: number;
+  shopPercentage: number;
+  shopAmount: number;
+  mechanicAmount: number;
+  notes?: string;
+}
+
+export interface VehicleJobCard {
+  id: string;
+  jobCardNumber: string; // e.g. "JC-101"
+  bayNumber: number;     // Bay 1 to 10
+  customerName: string;
+  customerPhone?: string;
+  bikeRegNumber: string; // e.g. "KHI-8291"
+  bikeModel: string;     // e.g. "Honda CD 70"
+  complaintDescription?: string;
+  assignedMechanicId?: string;
+  assignedMechanicName?: string;
+  status: "In Progress" | "Waiting for Parts" | "Ready for Bill" | "Completed" | "Cancelled";
+  items: BillItem[];     // Live parts installed so far
+  labourItems: BillLabourItem[]; // Live labor charges
+  estimatedSubtotal: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  billId?: string;
+  billNumber?: string;
 }
 
 export interface SupplierPayment {
@@ -129,4 +195,7 @@ export interface DashboardStats {
   monthlySales: number;
   totalPendingSupplierCredit: number;
   overdue15DaysCreditCount: number;
+  activeJobsCount: number;
+  totalMechanicsCount: number;
+  totalMechanicPayable: number;
 }

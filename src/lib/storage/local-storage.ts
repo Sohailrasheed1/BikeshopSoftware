@@ -1,6 +1,24 @@
-import { Part, Customer, Bill, SupplierCredit, DashboardStats } from "@/types";
+import {
+  Part,
+  Customer,
+  Bill,
+  SupplierCredit,
+  DashboardStats,
+  Mechanic,
+  MechanicLedgerEntry,
+  VehicleJobCard,
+  BillLabourItem,
+} from "@/types";
 import { IStorageService } from "./types";
-import { SEED_PARTS, SEED_CUSTOMERS, SEED_BILLS, SEED_SUPPLIER_CREDITS } from "./seed-data";
+import {
+  SEED_PARTS,
+  SEED_CUSTOMERS,
+  SEED_BILLS,
+  SEED_SUPPLIER_CREDITS,
+  SEED_MECHANICS,
+  SEED_MECHANIC_LEDGER,
+  SEED_JOB_CARDS,
+} from "./seed-data";
 import { daysSince } from "../utils";
 
 const STORAGE_KEYS = {
@@ -8,6 +26,9 @@ const STORAGE_KEYS = {
   CUSTOMERS: "skander_customers_v1",
   BILLS: "skander_bills_v1",
   SUPPLIER_CREDITS: "skander_supplier_credits_v1",
+  MECHANICS: "skander_mechanics_v1",
+  MECHANIC_LEDGER: "skander_mechanic_ledger_v1",
+  JOB_CARDS: "skander_job_cards_v1",
 };
 
 export class LocalStorageService implements IStorageService {
@@ -197,7 +218,37 @@ export class LocalStorageService implements IStorageService {
     bills.unshift(newBill);
     this.setItem(STORAGE_KEYS.BILLS, bills);
 
-    // 4. Update Customer Lifetime Spend and Visits if customer exists or was selected
+    // 4. Update Mechanic Ledger if labour charges are entered
+    if (billData.labourItems && billData.labourItems.length > 0) {
+      const ledger = await this.getMechanicLedger();
+      for (const item of billData.labourItems) {
+        if (item.amount > 0 && item.mechanicName) {
+          const shopAmount = item.shopShare ?? Math.round((item.amount * (item.shopCutPercentage || 0)) / 100);
+          const mechAmount = item.mechanicShare ?? (item.amount - shopAmount);
+          const entry: MechanicLedgerEntry = {
+            id: `mled-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            mechanicId: item.mechanicId || `mech-${encodeURIComponent(item.mechanicName.trim().toLowerCase())}`,
+            mechanicName: item.mechanicName,
+            type: "earning",
+            date: newBill.createdAt,
+            billId: newBill.id,
+            billNumber: newBill.billNumber,
+            vehicleDetails: [billData.bikeModel, billData.bikeRegNumber].filter(Boolean).join(" - ") || undefined,
+            customerName: billData.customerName || "Walk-in Customer",
+            laborDescription: item.description || "Mechanic Labour Work",
+            totalLaborAmount: item.amount,
+            shopPercentage: item.shopCutPercentage,
+            shopAmount: shopAmount,
+            mechanicAmount: mechAmount,
+            notes: `Labour from Bill #${newBill.billNumber}`,
+          };
+          ledger.unshift(entry);
+        }
+      }
+      this.setItem(STORAGE_KEYS.MECHANIC_LEDGER, ledger);
+    }
+
+    // 5. Update Customer Lifetime Spend and Visits if customer exists or was selected
     if (billData.customerId) {
       const cust = customers.find((c) => c.id === billData.customerId);
       if (cust) {
@@ -242,9 +293,319 @@ export class LocalStorageService implements IStorageService {
       }
     }
 
-    // 3. Mark Bill as Cancelled
+    // 3. Reverse Mechanic Ledger entries for this bill
+    const ledger = await this.getMechanicLedger();
+    const filteredLedger = ledger.filter((l) => l.billId !== bill.id && l.billNumber !== bill.billNumber);
+    this.setItem(STORAGE_KEYS.MECHANIC_LEDGER, filteredLedger);
+
+    // 4. Mark Bill as Cancelled
     bill.status = "Cancelled";
     this.setItem(STORAGE_KEYS.BILLS, bills);
+    return true;
+  }
+
+  // --- MECHANICS (میکینک) ---
+  async getMechanics(): Promise<Mechanic[]> {
+    return this.getItem<Mechanic[]>(STORAGE_KEYS.MECHANICS, SEED_MECHANICS);
+  }
+
+  async getMechanic(id: string): Promise<Mechanic | null> {
+    const mechs = await this.getMechanics();
+    return mechs.find((m) => m.id === id) || null;
+  }
+
+  async createMechanic(data: Omit<Mechanic, "id" | "createdAt" | "updatedAt">): Promise<Mechanic> {
+    const mechs = await this.getMechanics();
+    const newMech: Mechanic = {
+      ...data,
+      id: `mech-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mechs.push(newMech);
+    this.setItem(STORAGE_KEYS.MECHANICS, mechs);
+    return newMech;
+  }
+
+  async updateMechanic(id: string, updates: Partial<Mechanic>): Promise<Mechanic> {
+    const mechs = await this.getMechanics();
+    const idx = mechs.findIndex((m) => m.id === id);
+    if (idx === -1) throw new Error("Mechanic not found");
+    const updated: Mechanic = {
+      ...mechs[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    mechs[idx] = updated;
+    this.setItem(STORAGE_KEYS.MECHANICS, mechs);
+    return updated;
+  }
+
+  async deleteMechanic(id: string): Promise<boolean> {
+    const mechs = await this.getMechanics();
+    this.setItem(STORAGE_KEYS.MECHANICS, mechs.filter((m) => m.id !== id));
+    return true;
+  }
+
+  // --- MECHANIC LEDGER (کھاتہ) ---
+  async getMechanicLedger(mechanicId?: string): Promise<MechanicLedgerEntry[]> {
+    const all = this.getItem<MechanicLedgerEntry[]>(STORAGE_KEYS.MECHANIC_LEDGER, SEED_MECHANIC_LEDGER);
+    if (mechanicId) {
+      return all.filter((entry) => entry.mechanicId === mechanicId || entry.mechanicName.toLowerCase() === mechanicId.toLowerCase());
+    }
+    return all;
+  }
+
+  async recordMechanicPayout(mechanicId: string, amount: number, notes?: string): Promise<MechanicLedgerEntry> {
+    if (amount <= 0) throw new Error("Payout amount must be greater than zero");
+    const mechs = await this.getMechanics();
+    const mech = mechs.find((m) => m.id === mechanicId);
+    const mechName = mech ? mech.name : mechanicId;
+
+    const ledger = await this.getMechanicLedger();
+    const entry: MechanicLedgerEntry = {
+      id: `payout-${Date.now()}`,
+      mechanicId,
+      mechanicName: mechName,
+      type: "payout",
+      date: new Date().toISOString(),
+      totalLaborAmount: 0,
+      shopPercentage: 0,
+      shopAmount: 0,
+      mechanicAmount: amount,
+      notes: notes || "Cash Payout / Advance Ada Kiya Gya",
+    };
+    ledger.unshift(entry);
+    this.setItem(STORAGE_KEYS.MECHANIC_LEDGER, ledger);
+    return entry;
+  }
+
+  // --- LIVE VEHICLE JOB CARDS (10 Gariyon Ka Live Kaam) ---
+  async getJobCards(): Promise<VehicleJobCard[]> {
+    return this.getItem<VehicleJobCard[]>(STORAGE_KEYS.JOB_CARDS, SEED_JOB_CARDS);
+  }
+
+  async getJobCard(id: string): Promise<VehicleJobCard | null> {
+    const cards = await this.getJobCards();
+    return cards.find((c) => c.id === id) || null;
+  }
+
+  async createJobCard(cardData: {
+    bayNumber: number;
+    customerName: string;
+    customerPhone?: string;
+    bikeRegNumber: string;
+    bikeModel: string;
+    complaintDescription?: string;
+    assignedMechanicId?: string;
+    assignedMechanicName?: string;
+  }): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const count = cards.length + 101;
+    const newCard: VehicleJobCard = {
+      ...cardData,
+      id: `job-${Date.now()}`,
+      jobCardNumber: `JC-${count}`,
+      status: "In Progress",
+      items: [],
+      labourItems: [],
+      estimatedSubtotal: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    cards.unshift(newCard);
+    this.setItem(STORAGE_KEYS.JOB_CARDS, cards);
+    return newCard;
+  }
+
+  async updateJobCard(id: string, updates: Partial<VehicleJobCard>): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const idx = cards.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error("Job card not found");
+
+    const updated = {
+      ...cards[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // recalculate estimatedSubtotal
+    const partsTotal = (updated.items || []).reduce((acc, i) => acc + i.totalPrice, 0);
+    const labourTotal = (updated.labourItems || []).reduce((acc, l) => acc + l.amount, 0);
+    updated.estimatedSubtotal = partsTotal + labourTotal;
+
+    cards[idx] = updated;
+    this.setItem(STORAGE_KEYS.JOB_CARDS, cards);
+    return updated;
+  }
+
+  async addPartToJobCard(jobCardId: string, partId: string, quantity: number = 1): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    const parts = await this.getParts();
+    const part = parts.find((p) => p.id === partId);
+    if (!part) throw new Error("Part not found in inventory");
+
+    // Check available stock
+    const existingIndex = card.items.findIndex((i) => i.partId === partId);
+    const currentCardQty = existingIndex > -1 ? card.items[existingIndex].quantity : 0;
+    if (currentCardQty + quantity > part.currentStock) {
+      throw new Error(`Insufficient stock for "${part.name}". Available: ${part.currentStock}`);
+    }
+
+    if (existingIndex > -1) {
+      card.items[existingIndex].quantity += quantity;
+      card.items[existingIndex].totalPrice = card.items[existingIndex].quantity * card.items[existingIndex].unitPrice;
+    } else {
+      card.items.push({
+        partId: part.id,
+        partName: part.name,
+        category: part.category,
+        quantity,
+        unitPrice: part.sellingPrice,
+        purchasePrice: part.purchasePrice,
+        totalPrice: quantity * part.sellingPrice,
+      });
+    }
+
+    return this.updateJobCard(jobCardId, { items: card.items });
+  }
+
+  async updateJobCardPartQty(jobCardId: string, partId: string, delta: number): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    const existingIndex = card.items.findIndex((i) => i.partId === partId);
+    if (existingIndex === -1) return card;
+
+    const parts = await this.getParts();
+    const part = parts.find((p) => p.id === partId);
+
+    const newQty = card.items[existingIndex].quantity + delta;
+    if (newQty <= 0) {
+      card.items.splice(existingIndex, 1);
+    } else {
+      if (part && newQty > part.currentStock) {
+        throw new Error(`Only ${part.currentStock} units available in stock.`);
+      }
+      card.items[existingIndex].quantity = newQty;
+      card.items[existingIndex].totalPrice = newQty * card.items[existingIndex].unitPrice;
+    }
+
+    return this.updateJobCard(jobCardId, { items: card.items });
+  }
+
+  async removePartFromJobCard(jobCardId: string, partId: string): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    card.items = card.items.filter((i) => i.partId !== partId);
+    return this.updateJobCard(jobCardId, { items: card.items });
+  }
+
+  async addLabourToJobCard(
+    jobCardId: string,
+    labour: {
+      description: string;
+      amount: number;
+      mechanicId?: string;
+      mechanicName: string;
+      shopCutPercentage: number;
+    }
+  ): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    const shopShare = Math.round((labour.amount * (labour.shopCutPercentage || 0)) / 100);
+    const mechanicShare = labour.amount - shopShare;
+
+    const newLabour: BillLabourItem = {
+      id: `lbr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      description: labour.description,
+      amount: labour.amount,
+      mechanicId: labour.mechanicId,
+      mechanicName: labour.mechanicName,
+      shopCutPercentage: labour.shopCutPercentage,
+      shopShare,
+      mechanicShare,
+    };
+
+    card.labourItems.push(newLabour);
+    return this.updateJobCard(jobCardId, { labourItems: card.labourItems });
+  }
+
+  async removeLabourFromJobCard(jobCardId: string, labourId: string): Promise<VehicleJobCard> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    card.labourItems = card.labourItems.filter((l) => l.id !== labourId);
+    return this.updateJobCard(jobCardId, { labourItems: card.labourItems });
+  }
+
+  async completeJobCardAndGenerateBill(
+    jobCardId: string,
+    paymentMethod: Bill["paymentMethod"],
+    discount: number = 0,
+    notes?: string
+  ): Promise<{ bill: Bill; jobCard: VehicleJobCard }> {
+    const cards = await this.getJobCards();
+    const card = cards.find((c) => c.id === jobCardId);
+    if (!card) throw new Error("Job card not found");
+
+    const partsTotal = card.items.reduce((acc, i) => acc + i.totalPrice, 0);
+    const labourTotal = card.labourItems.reduce((acc, l) => acc + l.amount, 0);
+    const subtotal = partsTotal + labourTotal;
+    const grandTotal = Math.max(0, subtotal - (Number(discount) || 0));
+
+    // Try finding customer by phone or reg number
+    const customers = await this.getCustomers();
+    const existingCust = customers.find(
+      (c) =>
+        (card.customerPhone && c.phone === card.customerPhone) ||
+        (card.bikeRegNumber && c.bikeRegNumber.toLowerCase() === card.bikeRegNumber.toLowerCase())
+    );
+
+    // Create the real bill (validates stock, deducts stock, credits mechanic ledger, updates customer)
+    const bill = await this.createBill({
+      customerId: existingCust ? existingCust.id : undefined,
+      customerName: card.customerName || "Walk-in Customer",
+      customerPhone: card.customerPhone,
+      bikeRegNumber: card.bikeRegNumber,
+      bikeModel: card.bikeModel,
+      items: card.items,
+      labourItems: card.labourItems,
+      labourTotal,
+      partsTotal,
+      subtotal,
+      discount: Number(discount) || 0,
+      tax: 0,
+      grandTotal,
+      paidAmount: grandTotal,
+      paymentMethod,
+      notes: notes || `Generated from Job Card #${card.jobCardNumber}`,
+    });
+
+    // Mark job card as completed
+    card.status = "Completed";
+    card.completedAt = new Date().toISOString();
+    card.billId = bill.id;
+    card.billNumber = bill.billNumber;
+    card.updatedAt = new Date().toISOString();
+
+    this.setItem(STORAGE_KEYS.JOB_CARDS, cards);
+
+    return { bill, jobCard: card };
+  }
+
+  async deleteJobCard(id: string): Promise<boolean> {
+    const cards = await this.getJobCards();
+    this.setItem(STORAGE_KEYS.JOB_CARDS, cards.filter((c) => c.id !== id));
     return true;
   }
 
@@ -318,6 +679,9 @@ export class LocalStorageService implements IStorageService {
     const customers = await this.getCustomers();
     const bills = await this.getBills();
     const credits = await this.getSupplierCredits();
+    const jobCards = await this.getJobCards();
+    const mechanics = await this.getMechanics();
+    const ledger = await this.getMechanicLedger();
 
     const totalInventoryValue = parts.reduce((acc, p) => acc + p.purchasePrice * p.currentStock, 0);
     const lowStockCount = parts.filter((p) => p.currentStock > 0 && p.currentStock <= p.minStockLimit).length;
@@ -343,6 +707,16 @@ export class LocalStorageService implements IStorageService {
       (c) => c.status !== "Paid" && daysSince(c.purchaseDate) >= 15
     ).length;
 
+    // Active Jobs
+    const activeJobsCount = jobCards.filter(
+      (c) => c.status !== "Completed" && c.status !== "Cancelled"
+    ).length;
+
+    // Total Mechanic Payable
+    const totalEarnings = ledger.filter((l) => l.type === "earning").reduce((acc, l) => acc + l.mechanicAmount, 0);
+    const totalPayouts = ledger.filter((l) => l.type === "payout").reduce((acc, l) => acc + l.mechanicAmount, 0);
+    const totalMechanicPayable = Math.max(0, totalEarnings - totalPayouts);
+
     return {
       totalInventoryValue,
       totalPartsCount: parts.length,
@@ -354,6 +728,9 @@ export class LocalStorageService implements IStorageService {
       monthlySales,
       totalPendingSupplierCredit,
       overdue15DaysCreditCount,
+      activeJobsCount,
+      totalMechanicsCount: mechanics.length,
+      totalMechanicPayable,
     };
   }
 
@@ -363,6 +740,9 @@ export class LocalStorageService implements IStorageService {
     localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(SEED_CUSTOMERS));
     localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(SEED_BILLS));
     localStorage.setItem(STORAGE_KEYS.SUPPLIER_CREDITS, JSON.stringify(SEED_SUPPLIER_CREDITS));
+    localStorage.setItem(STORAGE_KEYS.MECHANICS, JSON.stringify(SEED_MECHANICS));
+    localStorage.setItem(STORAGE_KEYS.MECHANIC_LEDGER, JSON.stringify(SEED_MECHANIC_LEDGER));
+    localStorage.setItem(STORAGE_KEYS.JOB_CARDS, JSON.stringify(SEED_JOB_CARDS));
   }
 }
 

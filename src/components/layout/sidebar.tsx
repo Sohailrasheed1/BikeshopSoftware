@@ -15,8 +15,10 @@ import {
   AlertTriangle,
   LogOut,
   ShieldCheck,
+  Bike,
+  UserCheck,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatPKR } from "@/lib/utils";
 import { useStore } from "@/lib/storage/context";
 import { useSession, signOut } from "next-auth/react";
 
@@ -37,11 +39,27 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       icon: LayoutDashboard,
     },
     {
+      name: "Live Workshop Bay",
+      urdu: "10 Gariyon Ka Live Kaam",
+      href: "/workshop",
+      icon: Bike,
+      highlight: true,
+      badge: stats.activeJobsCount > 0 ? `${stats.activeJobsCount} Live` : undefined,
+      badgeVariant: "success",
+    },
+    {
       name: "Naya Bill Banayein",
-      urdu: "Fast Billing / POS",
+      urdu: "Fast Billing & POS",
       href: "/billing",
       icon: Receipt,
-      highlight: true,
+    },
+    {
+      name: "Mechanics & Labour",
+      urdu: "میکینک کھاتہ و کمیشن",
+      href: "/mechanics",
+      icon: Users,
+      badge: stats.totalMechanicPayable > 0 ? formatPKR(stats.totalMechanicPayable) : undefined,
+      badgeVariant: "warning",
     },
     {
       name: "Saman & Stock",
@@ -55,7 +73,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       name: "Gahak Record",
       urdu: "Customers & Khata",
       href: "/customers",
-      icon: Users,
+      icon: UserCheck,
     },
     {
       name: "Purane Bills",
@@ -145,6 +163,8 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                     "text-[10px] font-extrabold px-2 py-0.5 rounded-full border",
                     item.badgeVariant === "danger"
                       ? "bg-rose-100 text-rose-700 border-rose-200 animate-pulse"
+                      : item.badgeVariant === "success"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-black animate-pulse"
                       : "bg-amber-100 text-amber-800 border-amber-200"
                   )}
                 >

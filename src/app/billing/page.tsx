@@ -20,6 +20,8 @@ import {
   CreditCard,
   Phone,
   Tag,
+  Wrench,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +30,11 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { ReceiptModal } from "@/components/pos/receipt-modal";
 import { useStore } from "@/lib/storage/context";
-import { Part, Customer, Bill, BillItem } from "@/types";
+import { Part, Customer, Bill, BillItem, BillLabourItem } from "@/types";
 import { formatPKR } from "@/lib/utils";
 
 export default function BillingPage() {
-  const { parts, customers, createBill, addCustomer } = useStore();
+  const { parts, customers, mechanics, createBill, addCustomer } = useStore();
 
   // Mobile Tab View: 'catalog' or 'cart'
   const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog");
@@ -41,8 +43,17 @@ export default function BillingPage() {
   const [partSearch, setPartSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
-  // Cart State
+  // Cart State (Parts)
   const [cart, setCart] = useState<BillItem[]>([]);
+
+  // Labour State (Ujrat & Mechanic Commission)
+  const [labourCart, setLabourCart] = useState<BillLabourItem[]>([]);
+  const [showLabourInput, setShowLabourInput] = useState(false);
+  const [labourDesc, setLabourDesc] = useState("");
+  const [labourAmount, setLabourAmount] = useState<number | "">("");
+  const [labourMechanicId, setLabourMechanicId] = useState("");
+  const [labourShopCut, setLabourShopCut] = useState<number>(30);
+  const [labourError, setLabourError] = useState("");
 
   // Customer Details (Collapsed by default for zero-clutter fast sales)
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
@@ -156,16 +167,58 @@ export default function BillingPage() {
     setCart(cart.filter((item) => item.partId !== partId));
   };
 
+  // Labour Handlers
+  const handleAddLabourToCart = () => {
+    setLabourError("");
+    if (!labourDesc.trim()) {
+      setLabourError("Kaam / Service ki tafseel likhein (e.g. Engine Tuning).");
+      return;
+    }
+    const amt = Number(labourAmount);
+    if (!amt || amt <= 0) {
+      setLabourError("Labour charges (mublagh) darj karein.");
+      return;
+    }
+
+    const mech = mechanics.find((m) => m.id === labourMechanicId);
+    const mechName = mech ? mech.name : "Workshop Mechanic";
+    const shopCut = Number(labourShopCut) || 0;
+    const shopShare = Math.round((amt * shopCut) / 100);
+    const mechanicShare = amt - shopShare;
+
+    const newLabour: BillLabourItem = {
+      id: `lbr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      description: labourDesc.trim(),
+      amount: amt,
+      mechanicId: labourMechanicId || undefined,
+      mechanicName: mechName,
+      shopCutPercentage: shopCut,
+      shopShare,
+      mechanicShare,
+    };
+
+    setLabourCart([...labourCart, newLabour]);
+    setLabourDesc("");
+    setLabourAmount("");
+    setShowLabourInput(false);
+  };
+
+  const handleRemoveLabourFromCart = (id: string) => {
+    setLabourCart(labourCart.filter((item) => item.id !== id));
+  };
+
   // Calculations
-  const subtotal = cart.reduce((acc, item) => acc + item.totalPrice, 0);
+  const partsSubtotal = cart.reduce((acc, item) => acc + item.totalPrice, 0);
+  const labourSubtotal = labourCart.reduce((acc, item) => acc + item.amount, 0);
+  const subtotal = partsSubtotal + labourSubtotal;
   const totalItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
   const grandTotal = Math.max(0, subtotal - (Number(discount) || 0));
 
   // Save Bill
   const handleCompleteBill = async () => {
     setErrorMessage("");
-    if (cart.length === 0) {
-      setErrorMessage("Khaali bill save nahi ho sakta! Baraye meharbani pehle saman add karein.");
+    if (cart.length === 0 && labourCart.length === 0) {
+      setErrorMessage("Khaali bill save nahi ho sakta! Baraye meharbani pehle saman ya labour add karein.");
       return;
     }
 
@@ -179,6 +232,9 @@ export default function BillingPage() {
         bikeModel: bikeModel || undefined,
         customerAddress: customerAddress || undefined,
         items: cart,
+        labourItems: labourCart,
+        labourTotal: labourSubtotal,
+        partsTotal: partsSubtotal,
         subtotal,
         discount: Number(discount) || 0,
         tax: 0,
@@ -194,6 +250,7 @@ export default function BillingPage() {
 
       // Reset cart
       setCart([]);
+      setLabourCart([]);
       setDiscount(0);
       setNotes("");
       setShowCustomerDetails(false);
@@ -619,90 +676,265 @@ export default function BillingPage() {
             </CardHeader>
 
             <CardContent className="p-4 space-y-4">
-              {/* Item List */}
-              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
-                {cart.length === 0 ? (
-                  <div className="text-center py-12 space-y-2">
-                    <ShoppingCart className="h-10 w-10 text-slate-300 mx-auto" />
-                    <p className="text-xs font-bold text-slate-700">
-                      Bill abhi khaali hai
-                    </p>
-                    <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                      Saman ki list se koi bhi part chunein aur &quot;Add&quot; par click karein.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setMobileTab("catalog")}
-                      className="lg:hidden text-xs font-bold text-blue-600 underline pt-2"
-                    >
-                      Saman Catalog Kholein
-                    </button>
-                  </div>
-                ) : (
-                  cart.map((item) => (
-                    <div
-                      key={item.partId}
-                      className="p-3 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-extrabold text-xs text-slate-900 truncate">
-                          {item.partName}
+              {/* Item List (Parts) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Saman (Parts):</span>
+                  <span>{cart.length} Items</span>
+                </div>
+
+                <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
+                      Koi saman shamil nahi
+                    </div>
+                  ) : (
+                    cart.map((item) => (
+                      <div
+                        key={item.partId}
+                        className="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-extrabold text-xs text-slate-900 truncate">
+                            {item.partName}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {formatPKR(item.unitPrice)} fee nag
+                          </div>
                         </div>
+
+                        {/* Quantity Controls */}
+                        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.partId, -1)}
+                            className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-6 text-center text-xs font-black text-slate-900">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.partId, 1)}
+                            className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        {/* Line Total */}
+                        <div className="text-right min-w-[70px]">
+                          <div className="font-black text-xs text-slate-900">
+                            {formatPKR(item.totalPrice)}
+                          </div>
+                        </div>
+
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(item.partId)}
+                          className="p-1 text-slate-300 hover:text-rose-600 rounded transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Labour / Ujrat Section */}
+              <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                    <Wrench className="h-3.5 w-3.5" />
+                    <span>Labour / Ujrat (مزدوری):</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLabourInput(!showLabourInput);
+                      if (!labourMechanicId && mechanics.length > 0) {
+                        setLabourMechanicId(mechanics[0].id);
+                        setLabourShopCut(mechanics[0].defaultShopCutPercentage);
+                      }
+                    }}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200 transition flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {showLabourInput ? "Band Karein" : "+ Labour Shamil Karein"}
+                  </button>
+                </div>
+
+                {/* Inline Labour Addition Form */}
+                {showLabourInput && (
+                  <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2.5 animate-in fade-in duration-150 text-xs">
+                    {labourError && (
+                      <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold">
+                        {labourError}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                        Kaam / Service Ka Naam *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Engine Tuning, Oil Change, Clutch Plate Fitting..."
+                        value={labourDesc}
+                        onChange={(e) => setLabourDesc(e.target.value)}
+                        className="w-full h-8 px-2.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      {/* Fast chips */}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {["Engine Tuning", "Oil Change", "Brake Setting", "Chain Sprocket", "Full Wiring"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setLabourDesc(preset)}
+                            className="px-2 py-0.5 rounded bg-white text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100"
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                          Labour Amount (Rs.) *
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 500"
+                          value={labourAmount}
+                          onChange={(e) => setLabourAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                          className="w-full h-8 px-2 text-xs font-bold bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                          Shop Malik % *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={labourShopCut}
+                            onChange={(e) => setLabourShopCut(Number(e.target.value))}
+                            className="w-full h-8 pl-2 pr-6 text-xs font-bold bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                          <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-indigo-950 mb-1">
+                        Mechanic Ka Naam (Ustad) *
+                      </label>
+                      <select
+                        value={labourMechanicId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setLabourMechanicId(id);
+                          const m = mechanics.find((mech) => mech.id === id);
+                          if (m) setLabourShopCut(m.defaultShopCutPercentage);
+                        }}
+                        className="w-full h-8 px-2 text-xs bg-white border border-indigo-200 rounded-lg font-bold text-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        {mechanics.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({m.defaultShopCutPercentage}% default shop)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {Number(labourAmount) > 0 && (
+                      <div className="p-2 rounded-lg bg-white/80 border border-indigo-200 text-[10px] space-y-0.5">
+                        <div className="flex justify-between text-indigo-900 font-semibold">
+                          <span>Shop Cut ({labourShopCut}%):</span>
+                          <span>Rs. {Math.round((Number(labourAmount) * labourShopCut) / 100)}</span>
+                        </div>
+                        <div className="flex justify-between text-indigo-950 font-bold">
+                          <span>Mechanic Share ({100 - labourShopCut}%):</span>
+                          <span>Rs. {Number(labourAmount) - Math.round((Number(labourAmount) * labourShopCut) / 100)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAddLabourToCart}
+                      className="w-full h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Labour Bill Mein Shamil Karein
+                    </Button>
+                  </div>
+                )}
+
+                {/* List of Added Labour Items */}
+                <div className="space-y-1.5">
+                  {labourCart.map((lbr) => (
+                    <div
+                      key={lbr.id}
+                      className="p-2 rounded-xl bg-indigo-50/60 border border-indigo-100 flex items-center justify-between text-xs"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold text-indigo-950 truncate">{lbr.description}</div>
                         <div className="text-[10px] text-slate-500">
-                          {formatPKR(item.unitPrice)} fee nag
+                          Ustad: {lbr.mechanicName} • Shop: {lbr.shopCutPercentage}% (Rs. {lbr.shopShare})
                         </div>
                       </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(item.partId, -1)}
-                          className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-6 text-center text-xs font-black text-slate-900">
-                          {item.quantity}
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-indigo-900 text-xs">
+                          Rs. {lbr.amount}
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleUpdateQuantity(item.partId, 1)}
-                          className="h-6 w-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 shadow-xs"
+                          onClick={() => handleRemoveLabourFromCart(lbr.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
                         >
-                          <Plus className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-
-                      {/* Line Total */}
-                      <div className="text-right min-w-[70px]">
-                        <div className="font-black text-xs text-slate-900">
-                          {formatPKR(item.totalPrice)}
-                        </div>
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(item.partId)}
-                        className="p-1 text-slate-300 hover:text-rose-600 rounded transition"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
 
               {/* Bill Totals & Payment Section */}
-              {cart.length > 0 && (
-                <div className="pt-3 border-t border-slate-200/90 space-y-3">
-                  {/* Subtotal */}
-                  <div className="flex justify-between items-center text-xs text-slate-600">
-                    <span>Kul Raqam (Subtotal):</span>
-                    <span className="font-bold text-slate-900">
-                      {formatPKR(subtotal)}
-                    </span>
+              {(cart.length > 0 || labourCart.length > 0) && (
+                <div className="pt-3 border-t border-slate-200/90 space-y-2.5">
+                  {/* Itemized Subtotals */}
+                  <div className="space-y-1 text-xs">
+                    {cart.length > 0 && (
+                      <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                        <span>Saman (Parts Subtotal):</span>
+                        <span className="font-bold text-slate-700">{formatPKR(partsSubtotal)}</span>
+                      </div>
+                    )}
+                    {labourCart.length > 0 && (
+                      <div className="flex justify-between items-center text-indigo-600 text-[11px]">
+                        <span>Labour (Ujrat Subtotal):</span>
+                        <span className="font-bold text-indigo-800">{formatPKR(labourSubtotal)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center font-bold text-slate-700 pt-1 border-t border-slate-100">
+                      <span>Kul Raqam (Subtotal):</span>
+                      <span className="font-black text-slate-900">{formatPKR(subtotal)}</span>
+                    </div>
                   </div>
 
                   {/* Discount / Choot */}
@@ -757,7 +989,7 @@ export default function BillingPage() {
                         Net Total Raqam
                       </div>
                       <div className="text-xs text-slate-300">
-                        {cart.length} items • {totalItemCount} pieces
+                        {cart.length} parts • {labourCart.length} services
                       </div>
                     </div>
                     <div className="text-xl sm:text-2xl font-black text-emerald-400">
@@ -768,7 +1000,7 @@ export default function BillingPage() {
                   {/* Submit / Print Bill Button */}
                   <Button
                     size="lg"
-                    disabled={isSubmitting || cart.length === 0}
+                    disabled={isSubmitting || (cart.length === 0 && labourCart.length === 0)}
                     onClick={handleCompleteBill}
                     className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-xl shadow-md shadow-blue-600/30 transition flex items-center justify-center gap-2"
                   >
@@ -782,8 +1014,8 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Floating Bottom Bar for Mobile when items are in cart */}
-      {cart.length > 0 && mobileTab === "catalog" && (
+      {/* Floating Bottom Bar for Mobile when items or labour are in cart */}
+      {(cart.length > 0 || labourCart.length > 0) && mobileTab === "catalog" && (
         <div className="lg:hidden fixed bottom-16 inset-x-3 z-30 animate-in slide-in-from-bottom-3 duration-200">
           <div
             onClick={() => setMobileTab("cart")}
@@ -791,7 +1023,7 @@ export default function BillingPage() {
           >
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold">
-                {cart.length}
+                {cart.length + labourCart.length}
               </div>
               <div>
                 <div className="text-xs font-extrabold">{formatPKR(grandTotal)}</div>

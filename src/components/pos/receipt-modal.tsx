@@ -156,6 +156,9 @@ export function ReceiptModal({ bill, isOpen, onClose }: ReceiptModalProps) {
 
           {/* Items Table */}
           <div className="py-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Spare Parts (اسپیئر پارٹس / سامان)
+            </div>
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-300 text-[10px] uppercase font-bold text-slate-600">
@@ -166,32 +169,97 @@ export function ReceiptModal({ bill, isOpen, onClose }: ReceiptModalProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[11px]">
-                {bill.items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="py-1.5 pr-1">
-                      <div className="font-semibold text-slate-800 leading-snug">
-                        {item.partName}
-                      </div>
-                      <div className="text-[9px] text-slate-400">{item.category}</div>
-                    </td>
-                    <td className="py-1.5 text-center font-bold text-slate-800">
-                      {item.quantity}
-                    </td>
-                    <td className="py-1.5 text-right text-slate-600">
-                      {item.unitPrice}
-                    </td>
-                    <td className="py-1.5 text-right font-bold text-slate-900">
-                      {item.totalPrice}
+                {bill.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-2 text-center text-slate-400 italic">
+                      Koi saman shamil nahi (Only Service)
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  bill.items.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-1.5 pr-1">
+                        <div className="font-semibold text-slate-800 leading-snug">
+                          {item.partName}
+                        </div>
+                        <div className="text-[9px] text-slate-400">{item.category}</div>
+                      </td>
+                      <td className="py-1.5 text-center font-bold text-slate-800">
+                        {item.quantity}
+                      </td>
+                      <td className="py-1.5 text-right text-slate-600">
+                        {item.unitPrice}
+                      </td>
+                      <td className="py-1.5 text-right font-bold text-slate-900">
+                        {item.totalPrice}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
+          {/* Labour / Service Charges Table if any */}
+          {bill.labourItems && bill.labourItems.length > 0 && (
+            <div className="py-2 border-t border-dashed border-slate-200">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1 flex items-center justify-between">
+                <span>Labour & Service Charges (مزدوری / سروس)</span>
+                {copyType === "shop" && (
+                  <span className="text-[9px] text-slate-500 font-normal">
+                    (Shop % / Cut included)
+                  </span>
+                )}
+              </div>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-300 text-[10px] uppercase font-bold text-slate-600">
+                    <th className="py-1">Work / Service</th>
+                    <th className="py-1 text-center">Mechanic</th>
+                    <th className="py-1 text-right">Charges</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {bill.labourItems.map((lbr, idx) => (
+                    <tr key={idx}>
+                      <td className="py-1.5 pr-1">
+                        <div className="font-semibold text-slate-800 leading-snug">
+                          {lbr.description}
+                        </div>
+                        {copyType === "shop" && (
+                          <div className="text-[9px] text-blue-600 font-medium">
+                            Shop Cut: {lbr.shopCutPercentage}% (Rs. {lbr.shopShare}) • Mech: Rs. {lbr.mechanicShare}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-center font-medium text-slate-700">
+                        {lbr.mechanicName || "Workshop"}
+                      </td>
+                      <td className="py-1.5 text-right font-bold text-slate-900">
+                        {lbr.amount}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Totals */}
           <div className="pt-2 border-t border-dashed border-slate-300 space-y-1 text-[11px]">
-            <div className="flex justify-between text-slate-600">
+            {bill.labourItems && bill.labourItems.length > 0 && (
+              <>
+                <div className="flex justify-between text-slate-500 text-[10px]">
+                  <span>Parts Total (سامان):</span>
+                  <span>{formatPKR(bill.items.reduce((acc, i) => acc + i.totalPrice, 0))}</span>
+                </div>
+                <div className="flex justify-between text-slate-500 text-[10px]">
+                  <span>Labour Total (مزدوری):</span>
+                  <span>{formatPKR(bill.labourItems.reduce((acc, l) => acc + l.amount, 0))}</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between text-slate-600 font-semibold">
               <span>Subtotal:</span>
               <span>{formatPKR(bill.subtotal)}</span>
             </div>

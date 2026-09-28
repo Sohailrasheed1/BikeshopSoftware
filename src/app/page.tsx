@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Package,
   Wrench,
+  Bike,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,13 @@ import { formatPKR, formatDate, formatDateTime, daysSince } from "@/lib/utils";
 import { Bill } from "@/types";
 
 export default function DashboardPage() {
-  const { stats, parts, bills, supplierCredits } = useStore();
-  const [activeTab, setActiveTab] = useState<"bills" | "stock" | "credits">("bills");
+  const { stats, parts, bills, supplierCredits, jobCards, mechanics } = useStore();
+  const [activeTab, setActiveTab] = useState<"workshop" | "bills" | "stock" | "credits">("workshop");
   const [selectedBillForPrint, setSelectedBillForPrint] = useState<Bill | null>(null);
+
+  const activeJobs = jobCards.filter(
+    (j) => j.status !== "Completed" && j.status !== "Cancelled"
+  );
 
   const lowStockParts = parts.filter(
     (p) => p.currentStock <= p.minStockLimit
@@ -217,18 +222,49 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* 4 Fast Shortcuts for Counter Boy / Cashier */}
+      {/* 4 Fast Shortcuts for Counter & Workshop */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/workshop"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
+            <Bike className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800 flex items-center gap-1">
+              <span>Live Workshop</span>
+              {activeJobs.length > 0 && (
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400">{activeJobs.length} gariyan kaam par</div>
+          </div>
+        </Link>
+
         <Link
           href="/billing"
           className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
         >
-          <div className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition">
+          <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
             <Receipt className="h-5 w-5" />
           </div>
           <div>
             <div className="text-xs font-bold text-slate-800">Naya Bill</div>
-            <div className="text-[11px] text-slate-400">Parchi banayein</div>
+            <div className="text-[11px] text-slate-400">POS & Labour</div>
+          </div>
+        </Link>
+
+        <Link
+          href="/mechanics"
+          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
+        >
+          <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-800">Mechanic Khata</div>
+            <div className="text-[11px] text-slate-400">Labour & % Commission</div>
           </div>
         </Link>
 
@@ -236,38 +272,12 @@ export default function DashboardPage() {
           href="/inventory"
           className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
         >
-          <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition">
+          <div className="h-9 w-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
             <Boxes className="h-5 w-5" />
           </div>
           <div>
             <div className="text-xs font-bold text-slate-800">Stock Check</div>
-            <div className="text-[11px] text-slate-400">Saman ki tadad</div>
-          </div>
-        </Link>
-
-        <Link
-          href="/customers"
-          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
-        >
-          <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-800">Gahak Khata</div>
-            <div className="text-[11px] text-slate-400">Bike & phone record</div>
-          </div>
-        </Link>
-
-        <Link
-          href="/suppliers"
-          className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-blue-500 hover:shadow-sm transition flex items-center gap-3 group"
-        >
-          <div className="h-9 w-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition">
-            <WalletCards className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-800">Supplier Dena</div>
-            <div className="text-[11px] text-slate-400">Udhaar hisab</div>
+            <div className="text-[11px] text-slate-400">{stats.totalPartsCount} items</div>
           </div>
         </Link>
       </div>
@@ -277,7 +287,18 @@ export default function DashboardPage() {
         <CardHeader className="p-4 sm:p-5 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             {/* Clean Segmented Tab Control */}
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 self-start">
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 self-start flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("workshop")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "workshop"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                🏍️ Live Workshop Gariyan ({activeJobs.length})
+              </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("bills")}
@@ -315,7 +336,9 @@ export default function DashboardPage() {
 
             <Link
               href={
-                activeTab === "bills"
+                activeTab === "workshop"
+                  ? "/workshop"
+                  : activeTab === "bills"
                   ? "/bills"
                   : activeTab === "stock"
                   ? "/inventory"
@@ -330,6 +353,78 @@ export default function DashboardPage() {
         </CardHeader>
 
         <CardContent className="p-0">
+          {/* TAB 0: Live Workshop Bays */}
+          {activeTab === "workshop" && (
+            <div className="divide-y divide-slate-100">
+              {activeJobs.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-400 space-y-2">
+                  <Bike className="h-8 w-8 text-slate-300 mx-auto" />
+                  <p className="font-bold text-slate-700">Filhal shop par koi gari kaam mein nahi hai</p>
+                  <Link href="/workshop">
+                    <Button size="sm" variant="secondary" className="mt-2 text-xs font-bold">
+                      Workshop Bay Kholein
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                activeJobs.slice(0, 5).map((job) => (
+                  <div
+                    key={job.id}
+                    className="p-3.5 sm:p-4 hover:bg-slate-50/70 transition flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-xl bg-slate-900 text-white font-black text-xs flex flex-col items-center justify-center flex-shrink-0">
+                        <span className="text-[8px] text-blue-300">BAY</span>
+                        <span>{job.bayNumber.toString().padStart(2, "0")}</span>
+                      </div>
+
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-xs text-slate-900">
+                            {job.bikeRegNumber}
+                          </span>
+                          <span className="text-xs font-semibold px-2 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                            {job.bikeModel}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              job.status === "Ready for Bill"
+                                ? "bg-emerald-100 text-emerald-800 animate-pulse"
+                                : job.status === "Waiting for Parts"
+                                ? "bg-rose-50 text-rose-700"
+                                : "bg-amber-50 text-amber-800"
+                            }`}
+                          >
+                            {job.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          Customer: <strong className="text-slate-700">{job.customerName}</strong> • Ustad: <strong className="text-blue-700">{job.assignedMechanicName || "Workshop"}</strong> • {job.items.length} parts • {job.labourItems.length} services
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <div className="text-[10px] text-slate-400 font-semibold">Running Total</div>
+                        <div className="font-black text-sm text-slate-900">
+                          {formatPKR(job.estimatedSubtotal || 0)}
+                        </div>
+                      </div>
+
+                      <Link href="/workshop">
+                        <Button size="sm" variant="secondary" className="text-xs font-bold gap-1">
+                          <span>Dekhein</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
           {/* TAB 1: Recent Bills */}
           {activeTab === "bills" && (
             <div className="divide-y divide-slate-100">

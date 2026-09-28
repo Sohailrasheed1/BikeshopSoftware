@@ -122,6 +122,18 @@ export function Navbar({ onOpenMobile }: NavbarProps) {
           )}
         </Link>
 
+        {/* Quick Live Bay Button */}
+        <Link href="/workshop">
+          <Button
+            size="sm"
+            variant="outline"
+            className="shadow-xs font-bold border-blue-200 bg-blue-50/80 text-blue-700 hover:bg-blue-100 flex items-center gap-1.5 text-xs"
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live Workshop ({stats.activeJobsCount || 0})</span>
+          </Button>
+        </Link>
+
         {/* Quick New Bill Button */}
         <Link href="/billing">
           <Button size="sm" variant="primary" className="shadow-sm font-bold bg-blue-600 hover:bg-blue-700">

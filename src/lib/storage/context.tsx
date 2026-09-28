@@ -1,7 +1,17 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { Part, Customer, Bill, SupplierCredit, DashboardStats } from "@/types";
+import {
+  Part,
+  Customer,
+  Bill,
+  SupplierCredit,
+  DashboardStats,
+  Mechanic,
+  MechanicLedgerEntry,
+  VehicleJobCard,
+  BillLabourItem,
+} from "@/types";
 import { storageService } from "./local-storage";
 
 interface StoreContextType {
@@ -9,6 +19,9 @@ interface StoreContextType {
   customers: Customer[];
   bills: Bill[];
   supplierCredits: SupplierCredit[];
+  mechanics: Mechanic[];
+  mechanicLedger: MechanicLedgerEntry[];
+  jobCards: VehicleJobCard[];
   stats: DashboardStats;
   loading: boolean;
   refreshAll: () => Promise<void>;
@@ -24,6 +37,47 @@ interface StoreContextType {
   addSupplierCredit: (credit: Omit<SupplierCredit, "id" | "paidAmount" | "remainingBalance" | "status" | "paymentHistory" | "createdAt" | "updatedAt">) => Promise<SupplierCredit>;
   recordSupplierPayment: (creditId: string, amount: number, notes?: string) => Promise<SupplierCredit>;
   deleteSupplierCredit: (id: string) => Promise<boolean>;
+  
+  // Mechanics & Ledger
+  addMechanic: (mech: Omit<Mechanic, "id" | "createdAt" | "updatedAt">) => Promise<Mechanic>;
+  updateMechanic: (id: string, updates: Partial<Mechanic>) => Promise<Mechanic>;
+  deleteMechanic: (id: string) => Promise<boolean>;
+  recordMechanicPayout: (mechanicId: string, amount: number, notes?: string) => Promise<MechanicLedgerEntry>;
+  
+  // Job Cards (10 Gariyon Ka Live Kaam)
+  createJobCard: (card: {
+    bayNumber: number;
+    customerName: string;
+    customerPhone?: string;
+    bikeRegNumber: string;
+    bikeModel: string;
+    complaintDescription?: string;
+    assignedMechanicId?: string;
+    assignedMechanicName?: string;
+  }) => Promise<VehicleJobCard>;
+  updateJobCard: (id: string, updates: Partial<VehicleJobCard>) => Promise<VehicleJobCard>;
+  addPartToJobCard: (jobCardId: string, partId: string, quantity?: number) => Promise<VehicleJobCard>;
+  updateJobCardPartQty: (jobCardId: string, partId: string, delta: number) => Promise<VehicleJobCard>;
+  removePartFromJobCard: (jobCardId: string, partId: string) => Promise<VehicleJobCard>;
+  addLabourToJobCard: (
+    jobCardId: string,
+    labour: {
+      description: string;
+      amount: number;
+      mechanicId?: string;
+      mechanicName: string;
+      shopCutPercentage: number;
+    }
+  ) => Promise<VehicleJobCard>;
+  removeLabourFromJobCard: (jobCardId: string, labourId: string) => Promise<VehicleJobCard>;
+  completeJobCardAndGenerateBill: (
+    jobCardId: string,
+    paymentMethod: Bill["paymentMethod"],
+    discount?: number,
+    notes?: string
+  ) => Promise<{ bill: Bill; jobCard: VehicleJobCard }>;
+  deleteJobCard: (id: string) => Promise<boolean>;
+
   resetToSampleData: () => Promise<void>;
 }
 
@@ -38,6 +92,9 @@ const defaultStats: DashboardStats = {
   monthlySales: 0,
   totalPendingSupplierCredit: 0,
   overdue15DaysCreditCount: 0,
+  activeJobsCount: 0,
+  totalMechanicsCount: 0,
+  totalMechanicPayable: 0,
 };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -47,23 +104,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [supplierCredits, setSupplierCredits] = useState<SupplierCredit[]>([]);
+  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
+  const [mechanicLedger, setMechanicLedger] = useState<MechanicLedgerEntry[]>([]);
+  const [jobCards, setJobCards] = useState<VehicleJobCard[]>([]);
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
 
   const refreshAll = useCallback(async () => {
     try {
-      const [p, c, b, sc, st] = await Promise.all([
+      const [p, c, b, sc, st, m, ml, jc] = await Promise.all([
         storageService.getParts(),
         storageService.getCustomers(),
         storageService.getBills(),
         storageService.getSupplierCredits(),
         storageService.getDashboardStats(),
+        storageService.getMechanics(),
+        storageService.getMechanicLedger(),
+        storageService.getJobCards(),
       ]);
       setParts(p);
       setCustomers(c);
       setBills(b);
       setSupplierCredits(sc);
       setStats(st);
+      setMechanics(m);
+      setMechanicLedger(ml);
+      setJobCards(jc);
     } catch (err) {
       console.error("Failed to load store data:", err);
     } finally {
@@ -154,6 +220,109 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return res;
   };
 
+  // Mechanic functions
+  const addMechanic = async (mech: Omit<Mechanic, "id" | "createdAt" | "updatedAt">) => {
+    const created = await storageService.createMechanic(mech);
+    await refreshAll();
+    return created;
+  };
+
+  const updateMechanic = async (id: string, updates: Partial<Mechanic>) => {
+    const updated = await storageService.updateMechanic(id, updates);
+    await refreshAll();
+    return updated;
+  };
+
+  const deleteMechanic = async (id: string) => {
+    const res = await storageService.deleteMechanic(id);
+    await refreshAll();
+    return res;
+  };
+
+  const recordMechanicPayout = async (mechanicId: string, amount: number, notes?: string) => {
+    const entry = await storageService.recordMechanicPayout(mechanicId, amount, notes);
+    await refreshAll();
+    return entry;
+  };
+
+  // Job Cards functions
+  const createJobCard = async (card: {
+    bayNumber: number;
+    customerName: string;
+    customerPhone?: string;
+    bikeRegNumber: string;
+    bikeModel: string;
+    complaintDescription?: string;
+    assignedMechanicId?: string;
+    assignedMechanicName?: string;
+  }) => {
+    const created = await storageService.createJobCard(card);
+    await refreshAll();
+    return created;
+  };
+
+  const updateJobCard = async (id: string, updates: Partial<VehicleJobCard>) => {
+    const updated = await storageService.updateJobCard(id, updates);
+    await refreshAll();
+    return updated;
+  };
+
+  const addPartToJobCard = async (jobCardId: string, partId: string, quantity?: number) => {
+    const updated = await storageService.addPartToJobCard(jobCardId, partId, quantity);
+    await refreshAll();
+    return updated;
+  };
+
+  const updateJobCardPartQty = async (jobCardId: string, partId: string, delta: number) => {
+    const updated = await storageService.updateJobCardPartQty(jobCardId, partId, delta);
+    await refreshAll();
+    return updated;
+  };
+
+  const removePartFromJobCard = async (jobCardId: string, partId: string) => {
+    const updated = await storageService.removePartFromJobCard(jobCardId, partId);
+    await refreshAll();
+    return updated;
+  };
+
+  const addLabourToJobCard = async (
+    jobCardId: string,
+    labour: {
+      description: string;
+      amount: number;
+      mechanicId?: string;
+      mechanicName: string;
+      shopCutPercentage: number;
+    }
+  ) => {
+    const updated = await storageService.addLabourToJobCard(jobCardId, labour);
+    await refreshAll();
+    return updated;
+  };
+
+  const removeLabourFromJobCard = async (jobCardId: string, labourId: string) => {
+    const updated = await storageService.removeLabourFromJobCard(jobCardId, labourId);
+    await refreshAll();
+    return updated;
+  };
+
+  const completeJobCardAndGenerateBill = async (
+    jobCardId: string,
+    paymentMethod: Bill["paymentMethod"],
+    discount?: number,
+    notes?: string
+  ) => {
+    const result = await storageService.completeJobCardAndGenerateBill(jobCardId, paymentMethod, discount, notes);
+    await refreshAll();
+    return result;
+  };
+
+  const deleteJobCard = async (id: string) => {
+    const res = await storageService.deleteJobCard(id);
+    await refreshAll();
+    return res;
+  };
+
   const resetToSampleData = async () => {
     await storageService.resetToSampleData();
     await refreshAll();
@@ -166,6 +335,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         customers,
         bills,
         supplierCredits,
+        mechanics,
+        mechanicLedger,
+        jobCards,
         stats,
         loading,
         refreshAll,
@@ -181,6 +353,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addSupplierCredit,
         recordSupplierPayment,
         deleteSupplierCredit,
+        addMechanic,
+        updateMechanic,
+        deleteMechanic,
+        recordMechanicPayout,
+        createJobCard,
+        updateJobCard,
+        addPartToJobCard,
+        updateJobCardPartQty,
+        removePartFromJobCard,
+        addLabourToJobCard,
+        removeLabourFromJobCard,
+        completeJobCardAndGenerateBill,
+        deleteJobCard,
         resetToSampleData,
       }}
     >
